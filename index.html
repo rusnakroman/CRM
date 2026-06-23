@@ -866,7 +866,8 @@ function renderKarta(id){
       '</div>'+
       (canAdd?'<div class="kstav"><label>Stav:</label>'+
         '<select onchange="updKlientStav(\''+id+'\',this.value)">'+SK.map(function(s){return '<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
-        '<button class="btn btng btns" onclick="openPripModal(\''+id+'\')">⏰ Připomínka</button>'+'<button class=\"btn btnd btns\" onclick=\"openUzavrModal(\\'\'+id+\'\\')\">🔒 Uzavřít klienta</button></div>':'')+
+        '<button class="btn btng btns" onclick="openPripModal(\''+id+'\')">⏰ Připomínka</button>'+
+        '<button class="btn btnd btns" onclick="openUzavrModal(\''+id+'\')">🔒 Uzavřít klienta</button></div>':'')
       (canAdd?'<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--g1)">'+
         '<label style="font-size:11px;font-weight:700;color:var(--g3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Poznámka ke klientovi</label>'+
         '<textarea id="kPoz" style="width:100%;padding:8px 10px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:12px;font-family:var(--f);resize:vertical;min-height:60px;outline:none" onblur="saveKPoz(\''+id+'\')">'+(c.poznamka_klienta||'')+'</textarea></div>':'')+
