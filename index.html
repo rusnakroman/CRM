@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CRM – Navolávání</title>
+<title>Systém pro správu schůzek</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -864,10 +864,11 @@ function renderKarta(id){
         '<div class="ii"><label>Kampaň</label><span>'+(c.kampan||'—')+'</span></div>'+
         '<div class="ii"><label>Rodné číslo</label><span>'+(c.rodne_cislo||'—')+'</span></div>'+
       '</div>'+
-      (canAdd?'<div class="kstav"><label>Stav:</label>'+
-        '<select onchange="updKlientStav(\''+id+'\',this.value)">'+SK.map(function(s){return '<option value="'+s+'"'+(s===st?' selected':'')+'>'+s+'</option>';}).join('')+'</select>'+
+      (canAdd?'<div class="kstav">'+
+        '<span style="font-size:12px;font-weight:600;color:var(--g3)">Stav: <span class="stag '+(SKC[st]||'s-new')+'">'+st+'</span></span>'+
         '<button class="btn btng btns" onclick="openPripModal(\''+id+'\')">⏰ Připomínka</button>'+
-        '<button class="btn btnd btns" onclick="openUzavrModal(\''+id+'\')">🔒 Uzavřít klienta</button></div>':'')+
+        '<button class="btn btnd btns" onclick="openUzavrModal(\''+id+'\')">🔒 Uzavřít</button>'+
+        '</div>':'')+
       (canAdd?'<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--g1)">'+
         '<label style="font-size:11px;font-weight:700;color:var(--g3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Poznámka ke klientovi</label>'+
         '<textarea id="kPoz" style="width:100%;padding:8px 10px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:12px;font-family:var(--f);resize:vertical;min-height:60px;outline:none" onblur="saveKPoz(\''+id+'\')">'+(c.poznamka_klienta||'')+'</textarea></div>':'')+
