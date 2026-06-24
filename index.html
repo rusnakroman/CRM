@@ -908,6 +908,11 @@ function loadAll(cb){
         }
         DB={klienti:kl, aktivity:res.aktivity||[], oz_seznam:res.oz_seznam||[],
             oz_kapacity:res.oz_kapacity||[], uzivatele:res.uzivatele||[], kampane:res.kampane||[]};
+        // Vždy aktualizuj oz_id z čerstvých dat DB
+        if(CU){
+          var freshU=(res.uzivatele||[]).find(function(u){return u.id===CU.id;});
+          if(freshU&&freshU.oz_id){CU.oz_id=freshU.oz_id;localStorage.setItem('crm_u',JSON.stringify(CU));}
+        }
         if(cb)cb();
       }
     }).catch(function(){done++;if(done===tbls.length){hideLoader();if(cb)cb();}});
@@ -1800,22 +1805,29 @@ function scheduleNotif(a,klient){
 }
 
 // ══ KAPACITY OZ ══════════════════════════════════════════════
+function getMyOz(){
+  var freshU=DB.uzivatele.find(function(u){return u.id===CU.id;});
+  var ozId=(freshU&&freshU.oz_id)||CU.oz_id;
+  return DB.oz_seznam.find(function(o){return o.id===ozId;})||null;
+}
+
 function renderKapPage(){
-  // Načti oz_id přímo z DB (ne z cache CU)
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var ozId=cuUser.oz_id||CU.oz_id;
-  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});
-  if(!oz){document.getElementById('kapList').innerHTML='<div class="esb"><p>Nejsi přiřazený k OZ profilu.</p></div>';return;}
+  var oz=getMyOz();
+  if(!oz){
+    document.getElementById('kapList').innerHTML='<div class="esb"><p>OZ profil nenalezen. Kontaktuj manažera.</p></div>';
+    document.getElementById('kapSlots').innerHTML='';
+    return;
+  }
+  CU.oz_id=oz.id;
   var kapD=document.getElementById('kapDatum');
   if(!kapD.value)kapD.value=TODAY;
   kapD.min=TODAY;
-  renderKapSloty();renderKapList(oz.id);CU.oz_id=oz.id;
+  renderKapSloty();
+  renderKapList(oz.id);
 }
 function renderKapSloty(){
-  var datum=v('kapDatum');if(!datum){document.getElementById('kapSlots').innerHTML='';return;}
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var ozId=cuUser.oz_id||CU.oz_id;
-  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});if(!oz)return;
+  var datum=v('kapDatum');if(!datum){document.getElementById('kapSlots').innerHTML='<div style="color:var(--g3);font-size:12px;padding:8px">Vyber datum výše</div>';return;}
+  var oz=getMyOz();if(!oz)return;
   var ex=DB.oz_kapacity.filter(function(k){return k.oz_id===oz.id&&k.datum===datum;});
   document.getElementById('kapSlots').innerHTML=HOURS.map(function(h){
     var kap=ex.find(function(k){return k.slot===h;});
@@ -1825,9 +1837,7 @@ function renderKapSloty(){
 }
 function togKap(slot,btn){if(!btn.classList.contains('busy'))btn.classList.toggle('on');}
 function saveKapDen(){
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var ozId=cuUser.oz_id||CU.oz_id;
-  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});if(!oz)return;
+  var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var datum=v('kapDatum');if(!datum){toast('Vyber datum','err');return;}
   var toAdd=[],toDel=[];
   document.querySelectorAll('#kapSlots .kst').forEach(function(btn){
@@ -1870,8 +1880,7 @@ function getDatesInRange(od,doCls,dny){
   while(d<=end){var dow=d.getDay();if((dow===1&&dny[0])||(dow===2&&dny[1])||(dow===3&&dny[2])||(dow===4&&dny[3])||(dow===5&&dny[4])||(dow===6&&dny[5])||(dow===0&&dny[6]))dates.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}return dates;
 }
 function saveHromadne(){
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var oz=DB.oz_seznam.find(function(o){return o.id===(cuUser.oz_id||CU.oz_id);});if(!oz)return;
+  var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
   var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
@@ -1886,8 +1895,7 @@ function saveHromadne(){
   next();
 }
 function smazHromadne(){
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var oz=DB.oz_seznam.find(function(o){return o.id===(cuUser.oz_id||CU.oz_id);});if(!oz)return;
+  var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
   var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
@@ -1942,9 +1950,7 @@ function goKlient(kid){showTab('klienti');setTimeout(function(){selClient(kid);}
 
 // ══ OZ SCHŮZKY ═══════════════════════════════════════════════
 function renderOzSchuzky(){
-  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
-  var ozId=cuUser.oz_id||CU.oz_id;
-  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});
+  var oz=getMyOz();
   var body=document.getElementById('ozSchuzkyBody');
   if(!oz){body.innerHTML='<div class="esb"><p>Nejsi přiřazený k OZ profilu.</p></div>';return;}
   var moje=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.oz_id===oz.id;}).sort(function(a,b){return(a.datum+a.slot)>(b.datum+b.slot)?1:-1;});
