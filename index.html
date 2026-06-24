@@ -355,7 +355,14 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div class="kap-box">
         <h3>Přidat – jeden den</h3>
         <div class="fr"><label>Datum</label><input type="date" id="kapDatum" onchange="renderKapSloty()"></div>
-        <div style="font-size:10px;color:var(--g3);margin-bottom:6px">Klikni na čas pro přidání / odebrání</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--g3)">Klikni na čas pro přidání / odebrání</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--g3)"><span style="width:10px;height:10px;border-radius:3px;background:var(--wh);border:1.5px solid var(--g1);display:inline-block"></span>Volný</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--gm)"><span style="width:10px;height:10px;border-radius:3px;background:var(--gl);border:1.5px solid var(--gm);display:inline-block"></span>Přidáno</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--od)"><span style="width:10px;height:10px;border-radius:3px;background:var(--ol);border:1.5px solid var(--od);display:inline-block"></span>Obsazeno</span>
+          </div>
+        </div>
         <div class="kap-slots" id="kapSlots"></div>
         <button class="btn btn-p btn-sm" onclick="saveKapDen()">Uložit</button>
       </div>
@@ -1794,14 +1801,21 @@ function scheduleNotif(a,klient){
 
 // ══ KAPACITY OZ ══════════════════════════════════════════════
 function renderKapPage(){
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});
+  // Načti oz_id přímo z DB (ne z cache CU)
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var ozId=cuUser.oz_id||CU.oz_id;
+  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});
   if(!oz){document.getElementById('kapList').innerHTML='<div class="esb"><p>Nejsi přiřazený k OZ profilu.</p></div>';return;}
-  if(!v('kapDatum'))document.getElementById('kapDatum').value=TODAY;
-  renderKapSloty();renderKapList(oz.id);
+  var kapD=document.getElementById('kapDatum');
+  if(!kapD.value)kapD.value=TODAY;
+  kapD.min=TODAY;
+  renderKapSloty();renderKapList(oz.id);CU.oz_id=oz.id;
 }
 function renderKapSloty(){
   var datum=v('kapDatum');if(!datum){document.getElementById('kapSlots').innerHTML='';return;}
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});if(!oz)return;
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var ozId=cuUser.oz_id||CU.oz_id;
+  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});if(!oz)return;
   var ex=DB.oz_kapacity.filter(function(k){return k.oz_id===oz.id&&k.datum===datum;});
   document.getElementById('kapSlots').innerHTML=HOURS.map(function(h){
     var kap=ex.find(function(k){return k.slot===h;});
@@ -1811,7 +1825,9 @@ function renderKapSloty(){
 }
 function togKap(slot,btn){if(!btn.classList.contains('busy'))btn.classList.toggle('on');}
 function saveKapDen(){
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});if(!oz)return;
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var ozId=cuUser.oz_id||CU.oz_id;
+  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});if(!oz)return;
   var datum=v('kapDatum');if(!datum){toast('Vyber datum','err');return;}
   var toAdd=[],toDel=[];
   document.querySelectorAll('#kapSlots .kst').forEach(function(btn){
@@ -1854,7 +1870,8 @@ function getDatesInRange(od,doCls,dny){
   while(d<=end){var dow=d.getDay();if((dow===1&&dny[0])||(dow===2&&dny[1])||(dow===3&&dny[2])||(dow===4&&dny[3])||(dow===5&&dny[4])||(dow===6&&dny[5])||(dow===0&&dny[6]))dates.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}return dates;
 }
 function saveHromadne(){
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});if(!oz)return;
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var oz=DB.oz_seznam.find(function(o){return o.id===(cuUser.oz_id||CU.oz_id);});if(!oz)return;
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
   var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
@@ -1869,7 +1886,8 @@ function saveHromadne(){
   next();
 }
 function smazHromadne(){
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});if(!oz)return;
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var oz=DB.oz_seznam.find(function(o){return o.id===(cuUser.oz_id||CU.oz_id);});if(!oz)return;
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
   var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
@@ -1924,7 +1942,9 @@ function goKlient(kid){showTab('klienti');setTimeout(function(){selClient(kid);}
 
 // ══ OZ SCHŮZKY ═══════════════════════════════════════════════
 function renderOzSchuzky(){
-  var oz=DB.oz_seznam.find(function(o){return o.id===CU.oz_id;});
+  var cuUser=DB.uzivatele.find(function(u){return u.id===CU.id;})||CU;
+  var ozId=cuUser.oz_id||CU.oz_id;
+  var oz=DB.oz_seznam.find(function(o){return o.id===ozId;});
   var body=document.getElementById('ozSchuzkyBody');
   if(!oz){body.innerHTML='<div class="esb"><p>Nejsi přiřazený k OZ profilu.</p></div>';return;}
   var moje=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.oz_id===oz.id;}).sort(function(a,b){return(a.datum+a.slot)>(b.datum+b.slot)?1:-1;});
