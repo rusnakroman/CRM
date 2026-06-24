@@ -2371,18 +2371,20 @@ function renderUsers(){
   var el=document.getElementById('uList');
   if(!DB.uzivatele.length){el.innerHTML='<div class="esb" style="padding:20px;background:var(--wh);border-radius:var(--r2)">Žádní uživatelé.</div>';return;}
   el.innerHTML=DB.uzivatele.map(function(u){
-    var oz=u.oz_id?DB.oz_seznam.find(function(o){return o.id===u.oz_id;}):null;
     var dn=(u.jmeno+' '+u.prijmeni).trim()||u.username;
     return '<div class="ucard'+(u.aktivni?'':' ucard-arch')+'">'+
       '<div><div style="font-size:12px;font-weight:700;color:var(--bd);display:flex;align-items:center;gap:5px;margin-bottom:2px">'+
         esc(dn)+'<span class="rb '+(RC[u.role]||'')+'">'+RL[u.role]+'</span>'+(!u.aktivni?'<span class="stag st-bad">Archiv</span>':'')+'</div>'+
-      '<div style="font-size:11px;color:var(--g3)">@'+u.username+' · '+u.heslo+(u.email?' · '+u.email:'')+(oz?' · '+esc(oz.oblast||oz.jmeno):'')+(u.limit_klientu?' · limit: '+u.limit_klientu:'')+'</div></div>'+
-      '<div style="display:flex;gap:4px">'+
+      '<div style="font-size:11px;color:var(--g3)">@'+u.username+' · '+u.heslo+(u.email?' · '+u.email:'')+(u.limit_klientu?' · limit: '+u.limit_klientu:'')+'</div></div>'+
+      '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
         '<button class="btn btn-g btn-sm" onclick="openUserModal(\''+u.id+'\')">Upravit</button>'+
-        '<button class="btn btn-d btn-sm" onclick="archivUser(\''+u.id+'\','+(!u.aktivni)+')">'+(u.aktivni?'Archiv':'Obnovit')+'</button>'+
+        '<button class="btn btn-g btn-sm" style="color:var(--bm);border-color:var(--bm)" onclick="loginAs(\''+u.username+'\',\''+u.heslo+'\')">Přihlásit jako</button>'+
+        '<button class="btn btn-d btn-sm" onclick="archivUser(\''+u.id+'\','+(!u.aktivni)+')">'+( u.aktivni?'Archiv':'Obnovit')+'</button>'+
+        '<button class="btn btn-d btn-sm" onclick="confDel(\'user\',\''+u.id+'\')">Smazat</button>'+
       '</div></div>';
   }).join('');
 }
+
 function onURole(){document.getElementById('uOzF').style.display=v('uRole')==='oz'?'block':'none';}
 function openUserModal(id){
   editUId=id||null;
