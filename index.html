@@ -254,7 +254,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .fr input,.fr select,.fr textarea{width:100%;padding:7px 9px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:12px;font-family:var(--f);outline:none;background:var(--wh);transition:border-color .15s}
 .fr input:focus,.fr select:focus,.fr textarea:focus{border-color:var(--bm)}
 .fr textarea{min-height:60px;resize:vertical}
-.fr2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.fr2 .fr{margin-bottom:0}
 .mbtns{display:flex;gap:6px;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid var(--g1)}
 
 /* HOVOR TLACITKA */
@@ -361,8 +362,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div class="kap-box" style="background:var(--bll);border:1px solid #C5D8F0">
         <h3>Přidat hromadně</h3>
         <div class="fr2" style="margin-bottom:8px">
-          <div><label>Od</label><input type="date" id="hromOd"></div>
-          <div><label>Do</label><input type="date" id="hromDo"></div>
+          <div class="fr" style="margin-bottom:0"><label>Od</label><input type="date" id="hromOd"></div>
+          <div class="fr" style="margin-bottom:0"><label>Do</label><input type="date" id="hromDo"></div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" id="dPo" checked> Po</label>
@@ -496,8 +497,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       </select>
     </div>
     <div class="fr2">
-      <div><label>Datum</label><input type="date" id="actD"></div>
-      <div><label>Čas</label><input type="time" id="actC"></div>
+      <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="actD"></div>
+      <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="actC"></div>
     </div>
     <!-- Telefonát -->
     <div id="telSec" style="display:none">
@@ -513,8 +514,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
         <div id="ndovSec" style="display:none;background:var(--yl);border-radius:var(--r);padding:8px;border:1px solid #FFE082">
           <div style="font-size:10px;font-weight:700;color:var(--yd);margin-bottom:6px">Naplánovat další pokus</div>
           <div class="fr2">
-            <div><label>Datum</label><input type="date" id="zpD"></div>
-            <div><label>Čas</label><input type="time" id="zpC"></div>
+            <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="zpD"></div>
+            <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="zpC"></div>
           </div>
         </div>
       </div>
@@ -609,8 +610,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     </div>
     <div id="preMgrSec" style="display:none">
       <div class="fr2">
-        <div><label>Datum</label><input type="date" id="preDatum"></div>
-        <div><label>Čas</label><input type="time" id="preCas"></div>
+        <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="preDatum"></div>
+        <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="preCas"></div>
       </div>
     </div>
     <div class="fr"><label>Poznámka (důvod přehození)</label><textarea id="prePoz" placeholder="Proč se přehazuje..."></textarea></div>
@@ -627,16 +628,16 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <h3>Přidat klienta</h3>
     <div class="msub">Ruční přidání – jen manažer</div>
     <div class="fr2">
-      <div><label>Jméno a příjmení</label><input type="text" id="klJmeno" placeholder="Jan Novák"></div>
-      <div><label>Telefon</label><input type="tel" id="klTel" placeholder="777123456"></div>
+      <div class="fr" style="margin-bottom:0"><label>Jméno a příjmení</label><input type="text" id="klJmeno" placeholder="Jan Novák"></div>
+      <div class="fr" style="margin-bottom:0"><label>Telefon</label><input type="tel" id="klTel" placeholder="777123456"></div>
     </div>
-    <div class="fr2">
-      <div><label>E-mail</label><input type="email" id="klEmail"></div>
-      <div><label>Rodné číslo</label><input type="text" id="klRC" placeholder="800101/1234"></div>
+    <div class="fr2" style="margin-top:10px">
+      <div class="fr" style="margin-bottom:0"><label>E-mail</label><input type="email" id="klEmail"></div>
+      <div class="fr" style="margin-bottom:0"><label>Rodné číslo</label><input type="text" id="klRC" placeholder="800101/1234"></div>
     </div>
-    <div class="fr2">
-      <div><label>Město</label><input type="text" id="klMesto"></div>
-      <div><label>Okres</label><input type="text" id="klOkres"></div>
+    <div class="fr2" style="margin-top:10px">
+      <div class="fr" style="margin-bottom:0"><label>Město</label><input type="text" id="klMesto"></div>
+      <div class="fr" style="margin-bottom:0"><label>Okres</label><input type="text" id="klOkres"></div>
     </div>
     <div class="fr"><label>Kampaň</label>
       <select id="klKamp"><option value="">— bez kampaně —</option></select>
@@ -701,8 +702,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <div class="fr"><label>Uživatelské jméno</label><input type="text" id="uUser" placeholder="jananovak"></div>
     <div class="fr"><label>Heslo</label><input type="text" id="uHeslo" placeholder="min. 4 znaky"></div>
     <div class="fr2">
-      <div><label>Jméno</label><input type="text" id="uJmeno"></div>
-      <div><label>Příjmení</label><input type="text" id="uPrijmeni"></div>
+      <div class="fr" style="margin-bottom:0"><label>Jméno</label><input type="text" id="uJmeno"></div>
+      <div class="fr" style="margin-bottom:0"><label>Příjmení</label><input type="text" id="uPrijmeni"></div>
     </div>
     <div class="fr"><label>E-mail (notifikace)</label><input type="email" id="uEmail"></div>
     <div class="fr"><label>Role</label>
@@ -730,12 +731,12 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <div class="msub">Název a sazby pro odměny operátorek</div>
     <div class="fr"><label>Název kampaně</label><input type="text" id="kampNazev" placeholder="Kampaň Q1 2026"></div>
     <div class="fr2">
-      <div><label>Sazba za schůzku (Kč)</label><input type="number" id="kampSazba" value="0" min="0"></div>
-      <div><label>Doplatek za obchod (Kč)</label><input type="number" id="kampDoplatek" value="0" min="0"></div>
+      <div class="fr" style="margin-bottom:0"><label>Sazba za schůzku (Kč)</label><input type="number" id="kampSazba" value="0" min="0"></div>
+      <div class="fr" style="margin-bottom:0"><label>Doplatek za obchod (Kč)</label><input type="number" id="kampDoplatek" value="0" min="0"></div>
     </div>
     <div class="fr2">
-      <div><label>KPI bonus nad 20% konverze (Kč)</label><input type="number" id="kampKpi20" value="0" min="0"></div>
-      <div><label>KPI bonus nad 30% konverze (Kč)</label><input type="number" id="kampKpi30" value="0" min="0"></div>
+      <div class="fr" style="margin-bottom:0"><label>KPI bonus nad 20% konverze (Kč)</label><input type="number" id="kampKpi20" value="0" min="0"></div>
+      <div class="fr" style="margin-bottom:0"><label>KPI bonus nad 30% konverze (Kč)</label><input type="number" id="kampKpi30" value="0" min="0"></div>
     </div>
     <div class="mbtns">
       <button class="btn btn-g" onclick="closeModal('kampModal')">Zrušit</button>
@@ -2375,10 +2376,27 @@ function saveUser(){
     var exOz=editUId?DB.oz_seznam.find(function(o){var eu=DB.uzivatele.find(function(x){return x.id===editUId;});return eu&&o.id===eu.oz_id;}):null;
     var oid=exOz?exOz.id:uid();
     var ozRow={id:oid,jmeno:(jmeno+' '+prijmeni).trim()||username,zkratka:(jmeno||username).slice(0,5),oblast:obl,telefon:'',email:email};
-    sbIns('oz_seznam',ozRow).then(function(){
+    // Nejdřív ulož oz_seznam, pak uzivatele s oz_id
+    fetch(SB+'/rest/v1/oz_seznam',{
+      method:'POST',
+      headers:sbH({'Prefer':'return=representation,resolution=merge-duplicates'}),
+      body:JSON.stringify(ozRow)
+    }).then(function(r){return r.json();}).then(function(){
       var i=DB.oz_seznam.findIndex(function(o){return o.id===oid;});
       if(i>=0)DB.oz_seznam[i]=ozRow;else DB.oz_seznam.push(ozRow);
-      doSave(oid);
+      // Ulož uzivatele s oz_id natvrdo přes PATCH pokud existuje, nebo POST
+      var uid2=editUId||uid();
+      var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,
+             email:email,role:role,oz_id:oid,aktivni:true,limit_klientu:parseInt(v('uLimit'))||0};
+      fetch(SB+'/rest/v1/uzivatele',{
+        method:'POST',
+        headers:sbH({'Prefer':'return=representation,resolution=merge-duplicates'}),
+        body:JSON.stringify(u)
+      }).then(function(r){return r.json();}).then(function(){
+        var i2=DB.uzivatele.findIndex(function(x){return x.id===uid2;});
+        if(i2>=0)DB.uzivatele[i2]=u;else DB.uzivatele.push(u);
+        closeModal('uModal');renderUsers();toast((jmeno||username)+' uložen','ok');
+      });
     });
   } else doSave('');
 }
