@@ -529,16 +529,17 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     </div>
     <!-- Schůzka -->
     <div id="schSec" style="display:none">
-      <div class="fr"><label>Obchodní zástupce</label>
-        <select id="actOZ" onchange="onOZChange()">
-          <option value="">— čeká na přiřazení manažerem —</option>
-        </select>
+      <div class="fr">
+        <label>Datum schůzky</label>
+        <input type="date" id="schDatum" onchange="renderOzPicker()">
       </div>
-      <div id="ozSlotSec" style="display:none">
-        <div class="fr"><label>Volný termín OZ</label>
-          <select id="actSlot"><option value="">— vyber termín —</option></select>
+      <div class="fr">
+        <label>Vyberte obchodníka a termín</label>
+        <div id="ozPicker" style="border:1.5px solid var(--g1);border-radius:var(--r);overflow:hidden">
+          <div style="padding:10px;text-align:center;color:var(--g3);font-size:11px">Nejprve vyber datum</div>
         </div>
       </div>
+      <div id="schSelInfo" style="display:none;background:var(--gl);border:1px solid var(--gm);border-radius:var(--r);padding:8px 12px;font-size:12px;font-weight:600;color:var(--gm);margin-top:4px"></div>
     </div>
     <div class="fr"><label>Poznámka</label><textarea id="actN" placeholder="Výsledek, co dál..."></textarea></div>
     <div class="mbtns">
@@ -1308,6 +1309,7 @@ function saveKPoz(kid){
 function openActModal(kid){
   actKid=kid;editActId=null;hovorResult='';
   var c=DB.klienti.find(function(k){return k.id===kid;})||{};
+  selOzId=null;selSlot=null;selSlotDatum=null;
   sett('actTitle','Nová aktivita');
   sett('actSub',c.klient+' · '+c.telefon);
   document.getElementById('actTyp').value='tel';
@@ -1354,22 +1356,76 @@ function onTypChange(){
   var t=v('actTyp');
   document.getElementById('telSec').style.display=t==='tel'?'block':'none';
   document.getElementById('schSec').style.display=t==='sch'?'block':'none';
-  if(t==='sch')onOZChange();
+  if(t==='sch'){
+    // Nastav schDatum na dnešek pokud prázdné
+    var sd=document.getElementById('schDatum');
+    if(!sd.value)sd.value=TODAY;
+    renderOzPicker();
+  }
 }
 
-document.getElementById('actOZ').addEventListener('change',onOZChange);
-document.getElementById('actD').addEventListener('change',function(){if(v('actTyp')==='sch')onOZChange();});
-
-function onOZChange(){
-  var ozId=v('actOZ'),datum=v('actD');
-  var slotSec=document.getElementById('ozSlotSec');
-  if(!ozId){slotSec.style.display='none';return;}
-  slotSec.style.display='block';
-  var volne=DB.oz_kapacity.filter(function(k){return k.oz_id===ozId&&(!datum||k.datum>=datum)&&!k.obsazeno_klient_id;});
-  volne.sort(function(a,b){return(a.datum+a.slot)>(b.datum+b.slot)?1:-1;});
-  document.getElementById('actSlot').innerHTML='<option value="">— vyber termín —</option>'+
-    volne.slice(0,30).map(function(k){return '<option value="'+k.datum+'|'+k.slot+'">'+fmtD(k.datum)+' · '+k.slot+'</option>';}).join('');
+function renderOzPicker(){
+  var datum=v('schDatum');
+  var picker=document.getElementById('ozPicker');
+  var info=document.getElementById('schSelInfo');
+  // Reset výběru
+  selOzId=null;selSlot=null;selSlotDatum=null;
+  info.style.display='none';
+  if(!datum){picker.innerHTML='<div style="padding:10px;text-align:center;color:var(--g3);font-size:11px">Nejprve vyber datum</div>';return;}
+  
+  var ozList=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni!==false;});
+  DB.oz_seznam.forEach(function(o){if(!ozList.find(function(u){return u.id===o.id;}))ozList.push({id:o.id,jmeno:o.jmeno,prijmeni:'',aktivni:true,email:o.email||''});});
+  
+  if(!ozList.length){picker.innerHTML='<div style="padding:10px;text-align:center;color:var(--g3);font-size:11px">Žádní obchodníci v systému</div>';return;}
+  
+  var html='';
+  var hasAny=false;
+  ozList.forEach(function(oz){
+    var jm=(oz.jmeno+' '+(oz.prijmeni||'')).trim()||oz.username||oz.jmeno;
+    // Hledej sloty pro daný den i budoucí dny (±7 dní od vybraného)
+    var d0=new Date(datum);
+    var volne=DB.oz_kapacity.filter(function(k){
+      return k.oz_id===oz.id&&k.datum===datum&&!k.obsazeno_klient_id;
+    }).sort(function(a,b){return a.slot>b.slot?1:-1;});
+    
+    html+='<div class="oz-pick-row">';
+    html+='<div class="oz-pick-name">'+esc(jm)+'</div>';
+    if(volne.length){
+      hasAny=true;
+      html+='<div class="oz-pick-slots">'+
+        volne.map(function(k){
+          return '<button type="button" class="oz-slot" data-oz="'+oz.id+'" data-datum="'+k.datum+'" data-slot="'+k.slot+'" data-jm="'+esc(jm)+'" onclick="selOzSlotNew(this.dataset.oz,this.dataset.datum,this.dataset.slot,this.dataset.jm,this)">'+k.slot+'</button>';
+        }).join('')+
+      '</div>';
+    } else {
+      html+='<div class="oz-noslot">Žádné volné termíny pro '+fmtD(datum)+'</div>';
+    }
+    html+='</div>';
+  });
+  
+  picker.innerHTML=html;
+  
+  if(!hasAny){
+    picker.innerHTML+='<div style="padding:8px 10px;background:var(--yl);font-size:11px;color:var(--yd);border-top:1px solid var(--g1)">'+
+      'Žádný OZ nemá volno v tento den. Vyber jiné datum nebo schůzka bude čekat na přiřazení manažerem.'+
+    '</div>';
+  }
 }
+
+var selOzId=null,selSlot=null,selSlotDatum=null;
+
+function selOzSlotNew(ozId,datum,slot,ozJmeno,btn){
+  // Zruš předchozí výběr
+  document.querySelectorAll('.oz-slot.sel').forEach(function(b){b.classList.remove('sel');});
+  btn.classList.add('sel');
+  selOzId=ozId;selSlot=slot;selSlotDatum=datum;
+  var info=document.getElementById('schSelInfo');
+  info.style.display='block';
+  info.textContent='Vybráno: '+ozJmeno+' · '+fmtD(datum)+' · '+slot;
+}
+
+function onOZChange(){}  // prázdná - zachována pro zpětnou kompatibilitu
+document.addEventListener('change',function(e){if(e.target&&e.target.id==='actD'&&v('actTyp')==='sch')renderOzPicker();});
 
 function setHovor(val){
   hovorResult=val;
@@ -1406,10 +1462,14 @@ function saveAct(){
   var pozn=v('actN').trim();
   if(typ==='tel'&&!pozn)pozn='Pokus č.'+(pocet+1)+' – '+(hovorResult==='dovolano'?'dovoláno':'nedovoláno');
 
-  var ozId=v('actOZ')||null;
-  var slotVal=v('actSlot');
-  var slotDatum=datum,slot='';
-  if(slotVal){var sp=slotVal.split('|');slotDatum=sp[0];slot=sp[1];}
+  // Pro schůzku použij výběr z OZ pickeru
+  var ozId=null,slot='',slotDatum=datum;
+  if(typ==='sch'){
+    ozId=selOzId||null;
+    slot=selSlot||'';
+    slotDatum=selSlotDatum||datum;
+    datum=slotDatum; // datum schůzky = datum slotu
+  }
 
   var aid=uid();
   var a={id:aid,klient_id:actKid,typ:typ,datum:datum,cas:v('actC'),poznamka:pozn,
@@ -1737,13 +1797,19 @@ function sendEmail(a,klient){
     '<p style="color:#aaa;font-size:11px;margin-top:12px">CRM Navolávání</p></div>';
   var icsText=buildICS(a,klient,oz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
+  // Odeslat přes Supabase Edge Function (řeší CORS)
+  var EDGE_URL='https://onkrjavnvstztyrfrpxj.supabase.co/functions/v1/send-email';
   toEmails.forEach(function(email){
-    fetch('https://api.resend.com/emails',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RS},
-      body:JSON.stringify({from:'CRM Navolavani <onboarding@resend.dev>',to:[email],subject:subject,html:bodyHtml,
+    fetch(EDGE_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+      body:JSON.stringify({to:email,subject:subject,html:bodyHtml,
         attachments:[{filename:'schuzka.ics',content:icsB64,type:'text/calendar; method=REQUEST'}]})
     }).then(function(r){return r.json();})
-      .then(function(d){if(d.id)console.log('Email ok: '+email);else{console.error('Email err',d);toast('Email chyba: '+JSON.stringify(d).slice(0,80),'err');}})
+      .then(function(d){
+        if(d.id){console.log('Email ok: '+email);toast('Email odeslán','ok');}
+        else{console.error('Email err',d);toast('Email chyba: '+(d.message||JSON.stringify(d).slice(0,60)),'err');}
+      })
       .catch(function(e){console.error('Email fetch',e);toast('Email – chyba spojení','err');});
   });
 }
@@ -1762,10 +1828,12 @@ function sendEmailPrehod(a,klient,noOz,datum,slot){
   var fakeA={datum:datum,slot:slot,poznamka:a.poznamka,vytvoril:CU.dn};
   var icsText=buildICS(fakeA,klient,noOz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
+  var EDGE_URL2='https://onkrjavnvstztyrfrpxj.supabase.co/functions/v1/send-email';
   toEmails.forEach(function(email){
-    fetch('https://api.resend.com/emails',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+RS},
-      body:JSON.stringify({from:'CRM Navolavani <onboarding@resend.dev>',to:[email],subject:subject,html:bodyHtml,
+    fetch(EDGE_URL2,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+      body:JSON.stringify({to:email,subject:subject,html:bodyHtml,
         attachments:[{filename:'schuzka_prehozena.ics',content:icsB64,type:'text/calendar; method=REQUEST'}]})
     }).then(function(r){return r.json();}).catch(function(){});
   });
