@@ -316,8 +316,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <button class="sbimport" id="importLabel" style="display:none" onclick="triggerCSV()">Nahrát CSV</button>
-      <input type="file" id="fileInput" accept=".csv" onchange="handleCSVFile(this)" style="position:fixed;top:-100px;left:-100px;width:1px;height:1px;opacity:0">
+      <label class="sbimport" id="importLabel" style="visibility:hidden;height:0;margin:0;padding:0;overflow:hidden;display:block">Nahrát CSV<input type="file" id="fileInput" accept=".csv" onchange="handleCSVFile(this)" style="width:0;height:0;opacity:0;position:absolute"></label>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -1012,7 +1011,14 @@ function startApp(){
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
-  document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
+  var impLbl=document.getElementById('importLabel');
+  if(impLbl){
+    if(CU.role==='mgr'||CU.role==='tl'){
+      impLbl.style.visibility='visible';impLbl.style.height='';impLbl.style.margin='';impLbl.style.padding='';impLbl.style.overflow='';
+    } else {
+      impLbl.style.visibility='hidden';impLbl.style.height='0';impLbl.style.margin='0';impLbl.style.padding='0';impLbl.style.overflow='hidden';
+    }
+  }
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
@@ -1062,11 +1068,6 @@ function updBadge(){
     if(myN>0){b.setAttribute('data-badge',myN);b.classList.add('badge');}
     else{b.removeAttribute('data-badge');b.classList.remove('badge');}
   });
-}
-
-function triggerCSV(){
-  var fi=document.getElementById('fileInput');
-  if(fi){fi.value='';fi.click();}
 }
 
 function handleCSVFile(input){
