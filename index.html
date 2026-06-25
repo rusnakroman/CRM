@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CRM – Navolávání</title>
+<title>Schůzkovník</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -179,7 +179,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .kst{padding:7px 14px;border-radius:20px;border:1.5px solid var(--g1);background:var(--wh);font-size:12px;font-weight:700;cursor:pointer;color:var(--g3);transition:all .15s;white-space:nowrap}
 .kst:hover{border-color:var(--bm);color:var(--bm);background:var(--bl)}
 .kst.on{background:var(--gm);border-color:var(--gm);color:#fff}
-.kst.busy{background:var(--g1);border-color:var(--g2);color:var(--g3);cursor:not-allowed;opacity:.6}
+.kst.busy{background:var(--rl);border-color:var(--rm);color:var(--rm);cursor:not-allowed}
 .kap-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--g0);font-size:12px}
 .kap-item:last-child{border-bottom:none}
 
@@ -292,7 +292,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 </div>
 
 <header id="hdr" style="display:none">
-  <div class="hlogo">CRM</div>
+  <div class="hlogo">Schůzkovník</div>
   <div class="ntabs" id="navTabs"></div>
   <div class="hright">
     <div class="upill"><span id="hdrJ"></span><span class="rb" id="hdrR"></span></div>
@@ -360,7 +360,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
           <div style="display:flex;gap:6px;align-items:center">
             <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--g3)"><span style="width:10px;height:10px;border-radius:3px;background:var(--wh);border:1.5px solid var(--g1);display:inline-block"></span>Volný</span>
             <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--gm)"><span style="width:10px;height:10px;border-radius:3px;background:var(--gl);border:1.5px solid var(--gm);display:inline-block"></span>Přidáno</span>
-            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--od)"><span style="width:10px;height:10px;border-radius:3px;background:var(--ol);border:1.5px solid var(--od);display:inline-block"></span>Obsazeno</span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--rm)"><span style="width:10px;height:10px;border-radius:50%;background:var(--rl);border:1.5px solid var(--rm);display:inline-block"></span>Obsazeno</span>
           </div>
         </div>
         <div class="kap-slots" id="kapSlots"></div>
@@ -381,7 +381,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
           <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" id="dSo"> So</label>
           <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" id="dNe"> Ne</label>
         </div>
-        <div id="hromSloty" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+        <div id="hromSloty" class="kap-slots" style="margin-bottom:8px"></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-p btn-sm" onclick="saveHromadne()">Přidat</button>
           <button class="btn btn-d btn-sm" onclick="smazHromadne()">Odebrat</button>
@@ -974,7 +974,7 @@ function startApp(){
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'?'block':'none';
   var hs=document.getElementById('hromSloty');
-  if(hs)hs.innerHTML=HOURS.map(function(h){return '<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" class="hsl" value="'+h+'"> '+h+'</label>';}).join('');
+  if(hs)hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst" onclick="this.classList.toggle('+chr(39)+'on'+chr(39)+')" data-val="'+h+'">'+h+'</button>';}).join('');
   initDashMesic();
   buildNav();buildFilters();renderClients();
   if(CU.role==='oz')showTab('kap');
@@ -985,7 +985,7 @@ function startApp(){
 // ══ NAV ══════════════════════════════════════════════════════
 function buildNav(){
   var tabs=[];
-  if(CU.role==='op'){tabs=[{id:'klienti',l:'Klienti'},{id:'prip',l:'Naplánovaná volání'}];}
+  if(CU.role==='op'){tabs=[{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'}];}
   if(CU.role==='oz'){tabs=[{id:'kap',l:'Kapacity'},{id:'ozS',l:'Schůzky'},{id:'klienti',l:'Klienti'}];}
   if(CU.role==='mgr'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'},{id:'kamp',l:'Kampaně'},{id:'users',l:'Uživatelé'}];}
   document.getElementById('navTabs').innerHTML=tabs.map(function(t){
@@ -1299,9 +1299,9 @@ function renderActH(a,kid){
         (a.misto_schuzky?'<span style="font-size:10px;color:var(--g3)">'+(a.misto_schuzky==='pobocka'?'Pobočka':a.misto_schuzky==='klient'?'U klienta':'Online')+'</span>':'')+
         (a.hodnota?'<span style="font-size:10px;font-weight:700;color:var(--gm)">'+Number(a.hodnota).toLocaleString('cs-CZ')+' Kč</span>':'')+
         (a.potvrzeno?'<span class="stag st-ok">Potvrzeno</span>':'<span class="stag st-bad">Nepotvrzeno</span>')+
-        (!schStav&&oz&&(CU.role==='oz'||CU.role==='mgr')?'<button class="btn btn-g btn-sm" onclick="openSchStavModal(\''+kid+'\',\''+a.id+'\')">Výsledek</button>':'')+
-        (oz&&(CU.role==='oz'||CU.role==='mgr')&&!a.potvrzeno?'<button class="btn btn-ok btn-sm" onclick="potvrditSch(\''+a.id+'\',\''+kid+'\')">Potvrdit</button>':'')+
-        ((CU.role==='oz'||CU.role==='mgr')?'<button class="btn btn-g btn-sm" onclick="openPrehoditModal(\''+a.id+'\',\''+kid+'\')">Přehodit</button>':'')+
+        (!schStav&&oz&&(CU.role==='oz'||CU.role==='mgr')?'<button class="btn btn-g btn-sm" data-kid="'+kid+'" data-aid="'+a.id+'" onclick="openSchStavModal(this.dataset.kid,this.dataset.aid)">Výsledek</button>':'')+
+        (oz&&(CU.role==='oz'||CU.role==='mgr')&&!a.potvrzeno?'<button class="btn btn-ok btn-sm" data-aid="'+(a.id)+'" data-kid="'+(kid)+'" onclick="potvrditSch(this.dataset.aid,this.dataset.kid)">Potvrdit</button>':'')+
+        ((CU.role==='oz'||CU.role==='mgr')?'<button class="btn btn-g btn-sm" data-aid="'+a.id+'" data-kid="'+kid+'" onclick="openPrehoditModal(this.dataset.aid,this.dataset.kid)">Přehodit</button>':'')+
       '</div>':'')+
       '<div class="afoot">'+esc(a.vytvoril||'—')+'</div>'+
     '</div></div>';
@@ -2011,7 +2011,7 @@ function saveHromadne(){
   var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
-  var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
+  var sloty=Array.from(document.querySelectorAll('#hromSloty .kst.on')).map(function(btn){return btn.dataset.val;});
   if(!sloty.length){toast('Vyber časy','err');return;}
   var dates=getDatesInRange(od,doCls,dny);if(!dates.length){toast('Žádné dny','err');return;}
   var toAdd=[];
@@ -2026,7 +2026,7 @@ function smazHromadne(){
   var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
-  var sloty=Array.from(document.querySelectorAll('.hsl:checked')).map(function(cb){return cb.value;});
+  var sloty=Array.from(document.querySelectorAll('#hromSloty .kst.on')).map(function(btn){return btn.dataset.val;});
   if(!sloty.length){toast('Vyber časy','err');return;}
   var dates=getDatesInRange(od,doCls,dny);
   var toDel=[];dates.forEach(function(datum){sloty.forEach(function(slot){var kap=DB.oz_kapacity.find(function(k){return k.oz_id===oz.id&&k.datum===datum&&k.slot===slot&&!k.obsazeno_klient_id;});if(kap)toDel.push({datum:datum,slot:slot});});});
@@ -2062,11 +2062,9 @@ function renderKal(){
         else if(kap.obsazeno_klient_id){
           var kl=DB.klienti.find(function(c){return c.id===kap.obsazeno_klient_id;})||{};
           html+='<td class="kal-busy'+cls+'" onclick="goKlient(\''+kl.id+'\')" title="'+esc(kl.klient)+'">'+
-            '<div class="kal-slot-b">'+hour+'</div>'+
-            '<div class="kal-slot-bn">'+esc((kl.klient||'').split(' ')[0])+'</div>'+
-          '</td>';
+            '<div style="font-size:10px;font-weight:700;color:#1565C0;text-align:center;padding:3px">'+hour+'</div><div style="font-size:9px;color:#1976D2;text-align:center">obsazeno</div></td>';
         } else {
-          html+='<td class="kal-free'+cls+'"><div class="kal-slot-f">'+hour+'</div></td>';
+          html+='<td class="kal-free'+cls+'" title="Volno"><div style="font-size:9px;color:var(--g3);text-align:center;padding:4px">volno</div></td>';
         }
       });
       html+='</tr>';
@@ -2109,7 +2107,7 @@ function renderOzSchuzky(){
       '</div>'+
       (kl.poznamka_klienta?'<div style="font-size:11px;color:var(--g4);padding:6px;background:var(--yl);border-radius:var(--r);border:1px solid #FFE082;margin-bottom:5px">'+esc(kl.poznamka_klienta)+'</div>':'')+
       '<div style="display:flex;gap:5px;flex-wrap:wrap" onclick="event.stopPropagation()">'+
-        (!a.potvrzeno?'<button class="btn btn-ok btn-sm" onclick="potvrditSch(\''+a.id+'\',\''+kl.id+'\')">Potvrdit</button>':'')+
+        (!a.potvrzeno?'<button class="btn btn-ok btn-sm" data-aid="'+(a.id)+'" data-kid="'+(kl.id)+'" onclick="potvrditSch(this.dataset.aid,this.dataset.kid)">Potvrdit</button>':'')+
         (kat==='uz_schuzka'?'<button class="btn btn-p btn-sm" onclick="openSchStavModal(\''+kl.id+'\',\''+a.id+'\')">Výsledek schůzky</button>':'')+
         '<button class="btn btn-g btn-sm" onclick="openPrehoditModal(\''+a.id+'\',\''+kl.id+'\')">Přehodit</button>'+
       '</div>'+
