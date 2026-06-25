@@ -307,7 +307,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <label class="sbimport" id="importLabel" style="display:none">Nahrát CSV<input type="file" id="fileInput" accept=".csv"></label>
+      <button class="sbimport" id="importLabel" style="display:none" onclick="document.getElementById('fileInput').click()">Nahrát CSV</button>
+      <input type="file" id="fileInput" accept=".csv" style="display:none">
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -562,6 +563,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
         </div>
       </div>
       <div id="schSelInfo" style="display:none;background:var(--gl);border:1px solid var(--gm);border-radius:var(--r);padding:8px 12px;font-size:12px;font-weight:600;color:var(--gm);margin-top:4px"></div>
+      <div style="font-size:10px;color:var(--g3);margin-top:4px">Nevyberete-li termín, schůzka čeká na přiřazení manažerem.</div>
     </div>
     <div class="fr"><label>Poznámka</label><textarea id="actN" placeholder="Výsledek, co dál..."></textarea></div>
     <div class="mbtns">
@@ -1223,7 +1225,7 @@ function renderClients(){
     var op=c.prirazen_op?DB.uzivatele.find(function(u){return u.id===c.prirazen_op;}):null;
     var opJm=op?((op.jmeno||'').charAt(0)+(op.prijmeni||'').charAt(0)):'';
     return '<div class="cc'+(selId===c.id?' active':'')+(isDnes?' dnes':'')+'" style="position:relative">'+
-      '<input type="checkbox" class="kl-cb" data-id="'+c.id+'" onclick="event.stopPropagation();togKlVyber(this)" style="position:absolute;top:8px;right:6px;width:14px;height:14px;accent-color:var(--rd);cursor:pointer;z-index:2">'+
+      (CU.role==='mgr'?'<input type="checkbox" class="kl-cb" data-id="'+c.id+'" onclick="event.stopPropagation();togKlVyber(this)" style="position:absolute;top:8px;right:6px;width:14px;height:14px;accent-color:var(--rd);cursor:pointer;z-index:2">':'')+
       '<div onclick="selClient(\''+c.id+'\')" style="padding-right:20px">'+
       '<div class="ccrow1">'+
         '<span class="ccname">'+esc(c.klient)+'</span>'+
@@ -1308,7 +1310,7 @@ function renderKarta(id){
       '<button class="btn btn-p btn-sm" onclick="openActModal(\''+id+'\')">+ Aktivita</button>'+
       '<button class="btn btn-g btn-sm" onclick="openUzavrModal(\''+id+'\')">Uzavřít klienta</button>'+
       (CU.role==='mgr'||CU.role==='tl'?'<button class="btn btn-g btn-sm" onclick="openPreraditModal(\''+id+'\')">Přeřadit operátorce</button>':'')+
-      +(CU.role==='op'?'<button class="btn btn-g btn-sm" onclick="openEmailOzModal(\\\''+id+'\\\')">📧 Email OZ</button>':'')+
+      (CU.role==='op'?'<button class="btn btn-g btn-sm" onclick="openEmailOzModal(\\\''+id+'\\\')">📧 Email OZ</button>':'')+
     '</div>';
   }
   if(canOz&&kat==='uz_schuzka'){
@@ -1519,34 +1521,15 @@ function renderOzPicker(){
     '</div>';
   }
   
-  // Vždy zobrazit možnost zadat ručně
-  picker.innerHTML += '<div style="padding:8px 10px;border-top:1px solid var(--g1);background:var(--bll)">' +
-    '<div style="font-size:10px;font-weight:700;color:var(--bd);margin-bottom:6px">Nebo zadej OZ a čas ručně:</div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
-    '<select id="manualOZ" style="padding:5px 8px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:11px;flex:1;outline:none">' +
-    '<option value="">— vyber OZ —</option>' +
-    ozList.map(function(oz){var jm=(oz.jmeno+' '+(oz.prijmeni||'')).trim()||oz.username||oz.jmeno;return '<option value="'+oz.id+'">'+esc(jm)+'</option>';}).join('') +
-    '</select>' +
-    '<input type="time" id="manualCas" style="padding:5px 8px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:11px;outline:none" placeholder="10:00">' +
-    '<button type="button" class="btn btn-p btn-sm" onclick="selManualSlot()">Vybrat</button>' +
-    '</div></div>';
+  // Pokud nikdo nemá volno, zobraz info
+  if(!hasAny){
+    picker.innerHTML += '<div style="padding:8px 10px;border-top:1px solid var(--g1);background:var(--yl);font-size:11px;color:var(--yd)">'+
+      'Žádný OZ nemá volno v tento den. Schůzka bude čekat na přiřazení manažerem.'+
+    '</div>';
+  }
 }
 
-function selManualSlot(){
-  var ozId=document.getElementById('manualOZ').value;
-  var cas=document.getElementById('manualCas').value;
-  var datum=document.getElementById('schDatum').value;
-  if(!ozId||!cas){toast('Vyber OZ a zadej čas','err');return;}
-  var ozList2=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni!==false;});
-  DB.oz_seznam.forEach(function(o){if(!ozList2.find(function(u){return u.id===o.id;}))ozList2.push({id:o.id,jmeno:o.jmeno,prijmeni:'',aktivni:true});});
-  var oz=ozList2.find(function(o){return o.id===ozId;})||{};
-  var jm=(oz.jmeno+' '+(oz.prijmeni||'')).trim()||oz.username||oz.jmeno||'OZ';
-  document.querySelectorAll('.oz-slot.sel').forEach(function(b){b.classList.remove('sel');});
-  selOzId=ozId;selSlot=cas;selSlotDatum=datum;
-  var info=document.getElementById('schSelInfo');
-  info.style.display='block';
-  info.textContent='Vybráno (ručně): '+jm+' · '+fmtD(datum)+' · '+cas;
-}
+
 
 var selOzId=null,selSlot=null,selSlotDatum=null;
 
@@ -2787,7 +2770,7 @@ function togKlVyber(cb){
 function updBulkBar(){
   var bar=document.getElementById('bulkBar');
   var cnt=document.getElementById('bulkCount');
-  if(!bar)return;
+  if(!bar||CU.role!=='mgr')return;
   if(vybraniKlienti.length>0){
     bar.style.display='flex';
     cnt.textContent=vybraniKlienti.length+' klientů vybráno';
@@ -2803,6 +2786,7 @@ function zrusitVyber(){
 }
 
 function smazatVybrane(){
+  if(CU.role!=='mgr'){toast('Mazání klientů je dostupné jen pro manažera','err');return;}
   if(!vybraniKlienti.length)return;
   if(!confirm('Smazat '+vybraniKlienti.length+' klientů? Tato akce je nevratná.'))return;
   showLoader('Mažu '+vybraniKlienti.length+' klientů...');
