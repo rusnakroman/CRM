@@ -180,6 +180,9 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .kst:hover{border-color:var(--bm);color:var(--bm);background:var(--bl)}
 .kst.on{background:var(--gm);border-color:var(--gm);color:#fff}
 .kst.busy{background:var(--rl);border-color:var(--rm);color:var(--rm);cursor:not-allowed}
+.oz-slot{padding:7px 14px;border-radius:20px;border:1.5px solid var(--g1);background:var(--wh);font-size:12px;font-weight:700;cursor:pointer;color:var(--g3);transition:all .15s;white-space:nowrap}
+.oz-slot:hover{border-color:var(--gm);color:var(--gm);background:var(--gl)}
+.oz-slot.sel{background:var(--gm);border-color:var(--gm);color:#fff}
 .kap-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--g0);font-size:12px}
 .kap-item:last-child{border-bottom:none}
 
@@ -276,6 +279,12 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 @keyframes sp{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--g2);border-radius:2px}
+.oz-pick-row{display:flex;align-items:flex-start;border-bottom:1px solid var(--g1);padding:7px 0}
+.oz-pick-row:last-child{border-bottom:none}
+.oz-pick-name{padding:4px 10px 4px 4px;min-width:120px;border-right:2px solid var(--g1);margin-right:10px;flex-shrink:0}
+.oz-pick-slots{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;flex:1}
+.oz-noslot{font-size:10px;color:var(--g3);padding:6px 4px;font-style:italic;align-self:center}
+
 </style>
 </head>
 <body>
@@ -307,8 +316,10 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <button class="sbimport" id="importLabel" style="display:none" onclick="document.getElementById('fileInput').click()">Nahrát CSV</button>
-      <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleCSVFile(this)">
+      <label class="sbimport" id="importLabel" style="display:none;cursor:pointer;position:relative;overflow:hidden">
+        Nahrát CSV
+        <input type="file" id="fileInput" accept=".csv" onchange="handleCSVFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      </label>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -511,7 +522,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
         <option value="email">E-mail</option>
       </select>
     </div>
-    <div class="fr2">
+    <div class="fr2" id="actDatumRow">
       <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="actD"></div>
       <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="actC"></div>
     </div>
@@ -1454,10 +1465,12 @@ function openEditAct(aid,kid){
 
 function onTypChange(){
   var t=v('actTyp');
+  // Skrýt Datum/Čas pro schůzku - má vlastní datum v pickeru
+  var datRow=document.getElementById('actDatumRow');
+  if(datRow)datRow.style.display=t==='sch'?'none':'grid';
   document.getElementById('telSec').style.display=t==='tel'?'block':'none';
   document.getElementById('schSec').style.display=t==='sch'?'block':'none';
   if(t==='sch'){
-    // Nastav schDatum na dnešek pokud prázdné
     var sd=document.getElementById('schDatum');
     if(!sd.value)sd.value=TODAY;
     renderOzPicker();
