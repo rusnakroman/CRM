@@ -175,11 +175,11 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .kap-wrap{max-width:600px;margin:0 auto}
 .kap-box{background:var(--wh);border-radius:var(--r2);box-shadow:var(--sh);padding:14px 16px;margin-bottom:12px}
 .kap-box h3{font-size:12px;font-weight:800;color:var(--bd);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
-.kap-slots{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.kst{padding:5px 11px;border-radius:5px;border:1.5px solid var(--g1);background:var(--wh);font-size:11px;font-weight:600;cursor:pointer;color:var(--g3);transition:all .12s}
-.kst:hover{border-color:var(--bm);color:var(--bm)}
-.kst.on{background:var(--gl);border-color:var(--gm);color:var(--gm)}
-.kst.busy{background:var(--ol);border-color:var(--od);color:var(--od);cursor:not-allowed}
+.kap-slots{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;padding:10px;background:var(--g0);border-radius:var(--r);border:1px solid var(--g1)}
+.kst{padding:7px 14px;border-radius:20px;border:1.5px solid var(--g1);background:var(--wh);font-size:12px;font-weight:700;cursor:pointer;color:var(--g3);transition:all .15s;white-space:nowrap}
+.kst:hover{border-color:var(--bm);color:var(--bm);background:var(--bl)}
+.kst.on{background:var(--gm);border-color:var(--gm);color:#fff}
+.kst.busy{background:var(--g1);border-color:var(--g2);color:var(--g3);cursor:not-allowed;opacity:.6}
 .kap-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--g0);font-size:12px}
 .kap-item:last-child{border-bottom:none}
 
@@ -532,6 +532,21 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div class="fr">
         <label>Datum schůzky</label>
         <input type="date" id="schDatum" onchange="renderOzPicker()">
+      </div>
+      <div class="fr2">
+        <div class="fr" style="margin-bottom:0"><label>Typ schůzky</label>
+          <select id="schTyp">
+            <option value="osobni">Osobní</option>
+            <option value="telefonicka">Telefonická</option>
+          </select>
+        </div>
+        <div class="fr" style="margin-bottom:0"><label>Místo schůzky</label>
+          <select id="schMisto">
+            <option value="pobocka">Pobočka</option>
+            <option value="klient">U klienta</option>
+            <option value="online">Online</option>
+          </select>
+        </div>
       </div>
       <div class="fr">
         <label>Vyberte obchodníka a termín</label>
@@ -1276,6 +1291,8 @@ function renderActH(a,kid){
         '<span class="stag '+(SC[a.stav||'plan']||'st-plan')+'">'+(STAV_LABEL[a.stav]||SL[a.stav||'plan']||a.stav)+'</span>'+
         (oz?'<span style="font-size:10px;font-weight:600;color:var(--bd)">'+esc(oz.jmeno)+'</span>':'<span style="font-size:10px;color:var(--g3)">OZ nepřiřazen</span>')+
         (a.slot?'<span style="font-size:10px;color:var(--g3)">'+a.slot+'</span>':'')+
+        (a.typ_schuzky?'<span style="font-size:10px;color:var(--g3)">'+(a.typ_schuzky==='telefonicka'?'Telefonická':'Osobní')+'</span>':'')+
+        (a.misto_schuzky?'<span style="font-size:10px;color:var(--g3)">'+(a.misto_schuzky==='pobocka'?'Pobočka':a.misto_schuzky==='klient'?'U klienta':'Online')+'</span>':'')+
         (a.hodnota?'<span style="font-size:10px;font-weight:700;color:var(--gm)">'+Number(a.hodnota).toLocaleString('cs-CZ')+' Kč</span>':'')+
         (a.potvrzeno?'<span class="stag st-ok">Potvrzeno</span>':'<span class="stag st-bad">Nepotvrzeno</span>')+
         (!schStav&&oz&&(CU.role==='oz'||CU.role==='mgr')?'<button class="btn btn-g btn-sm" onclick="openSchStavModal(\''+kid+'\',\''+a.id+'\')">Výsledek</button>':'')+
@@ -1474,6 +1491,8 @@ function saveAct(){
   var a={id:aid,klient_id:actKid,typ:typ,datum:datum,cas:v('actC'),poznamka:pozn,
          stav:typ==='sch'?(ozId&&slot?'plan':'ceka_oz'):(typ==='tel'?hovorResult:''),
          oz_id:typ==='sch'?ozId:null,slot:typ==='sch'?slot:'',
+         typ_schuzky:typ==='sch'?v('schTyp'):'',
+         misto_schuzky:typ==='sch'?v('schMisto'):'',
          hodnota:null,potvrzeno:false,vytvoril:CU.dn||CU.username};
 
   // Naplánované volání
@@ -1574,6 +1593,13 @@ function saveSchStav(){
   if(schStavActId){
     sbUpd('aktivity','id=eq.'+schStavActId,upd).then(function(){
       var a=DB.aktivity.find(function(x){return x.id===schStavActId;});if(a)Object.assign(a,upd);
+      // Pokud OZ dal Nezájem nebo Zrušena → klient se skryje (uzavřít jako oz_nezajem)
+      if(d==='oz_nezajem'||d==='oz_zrusena'){
+        sbUpd('klienti','id=eq.'+schStavKid,{stav_klienta:d}).then(function(){
+          var k=DB.klienti.find(function(c){return c.id===schStavKid;});if(k)k.stav_klienta=d;
+          renderClients();
+        });
+      }
       closeModal('schStavModal');renderKarta(schStavKid);toast('Výsledek uložen','ok');
     });
   } else {
@@ -1806,8 +1832,11 @@ function sendEmail(a,klient){
         attachments:[{filename:'schuzka.ics',content:icsB64,type:'text/calendar; method=REQUEST'}]})
     }).then(function(r){return r.json();})
       .then(function(d){
-        if(d.id){console.log('Email ok: '+email);toast('Email odeslán','ok');}
-        else{console.error('Email err',d);toast('Email chyba: '+(d.message||JSON.stringify(d).slice(0,60)),'err');}
+        if(d.messageId||d.id||d.Message_Id){console.log('Email ok: '+email);toast('Email odeslán','ok');}
+        else{
+          console.error('Email err detail:',JSON.stringify(d));
+          toast('Email chyba: '+JSON.stringify(d).slice(0,120),'err');
+        }
       })
       .catch(function(e){console.error('Email fetch',e);toast('Email – chyba spojení','err');});
   });
@@ -2039,6 +2068,11 @@ function goKlient(kid){showTab('klienti');setTimeout(function(){selClient(kid);}
 // ══ OZ SCHŮZKY ═══════════════════════════════════════════════
 function renderOzSchuzky(){
   var oz=getMyOz();
+  if(!oz){
+    // Zkus najít OZ podle přihlášeného uživatele přímo
+    var me=DB.uzivatele.find(function(u){return u.id===CU.id;});
+    if(me){oz={id:me.id,jmeno:me.dn||CU.dn,email:me.email||''};}
+  }
   var body=document.getElementById('ozSchuzkyBody');
   if(!oz){body.innerHTML='<div class="esb"><p>Nejsi přiřazený k OZ profilu.</p></div>';return;}
   var moje=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.oz_id===oz.id;}).sort(function(a,b){return(a.datum+a.slot)>(b.datum+b.slot)?1:-1;});
