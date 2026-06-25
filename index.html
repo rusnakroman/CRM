@@ -308,7 +308,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
       <button class="sbimport" id="importLabel" style="display:none" onclick="document.getElementById('fileInput').click()">Nahrát CSV</button>
-      <input type="file" id="fileInput" accept=".csv" style="display:none">
+      <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleCSVFile(this)">
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -1010,16 +1010,7 @@ function startApp(){
   if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
   initDashMesic();
   buildNav();buildFilters();renderClients();
-  // Přidat file listener pokud ještě není
-  var fi=document.getElementById('fileInput');
-  if(fi&&!fi._bound){
-    fi._bound=true;
-    fi.addEventListener('change',function(e){
-      var f=e.target.files[0];if(!f)return;
-      var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');
-      this.value='';
-    });
-  }
+
   if(CU.role==='oz')showTab('kap');
   else if(CU.role==='mgr'||CU.role==='tl')showTab('dash');
   else showTab('klienti');
@@ -1062,6 +1053,14 @@ function updBadge(){
     if(myN>0){b.setAttribute('data-badge',myN);b.classList.add('badge');}
     else{b.removeAttribute('data-badge');b.classList.remove('badge');}
   });
+}
+
+function handleCSVFile(input){
+  var f=input.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){parseCSV(ev.target.result);};
+  r.readAsText(f,'UTF-8');
+  input.value='';
 }
 
 // ══ CSV IMPORT ═══════════════════════════════════════════════
@@ -1491,13 +1490,14 @@ function renderOzPicker(){
     }).length;
     var celkem=volne.length+obsazeno;
     
+    // Přeskočit OZ bez jakýchkoliv termínů na daný den
+    if(celkem===0)return;
     html+='<div class="oz-pick-row">';
     html+='<div class="oz-pick-name">'+
       '<div style="font-weight:700;font-size:12px;color:var(--bd)">'+esc(jm)+'</div>'+
       '<div style="font-size:10px;color:var(--g3);margin-top:2px">'+
-        (celkem?'<span style="color:var(--gm)">'+volne.length+' volných</span>'+
-        (obsazeno?' · <span style="color:var(--od)">'+obsazeno+' obsazených</span>':''):
-        'Žádné termíny')+
+        '<span style="color:var(--gm)">'+volne.length+' volných</span>'+
+        (obsazeno?' · <span style="color:var(--od)">'+obsazeno+' obsaz.</span>':'')+
       '</div>'+
     '</div>';
     if(volne.length){
@@ -1508,7 +1508,7 @@ function renderOzPicker(){
         }).join('')+
       '</div>';
     } else {
-      html+='<div class="oz-noslot">'+(celkem?'Všechny termíny obsazeny':'Žádné termíny přidány')+'</div>';
+      html+='<div class="oz-noslot">Všechny termíny obsazeny</div>';
     }
     html+='</div>';
   });
@@ -2792,7 +2792,8 @@ function smazatVybrane(){
   showLoader('Mažu '+vybraniKlienti.length+' klientů...');
   var ids=vybraniKlienti.slice();
   var done=0;
-  ids.forEach(function(id){
+      ids.forEach(function(id){
+    DB.aktivity.filter(function(a){return a.klient_id===id&&a.typ==='sch'&&a.oz_id&&a.slot&&a.datum;}).forEach(function(a){var kap=DB.oz_kapacity.find(function(k){return k.oz_id===a.oz_id&&k.datum===a.datum&&k.slot===a.slot;});if(kap){kap.obsazeno_klient_id='';sbUpd('oz_kapacity','oz_id=eq.'+a.oz_id+'&datum=eq.'+a.datum+'&slot=eq.'+encodeURIComponent(a.slot),{obsazeno_klient_id:''});}});
     sbDel('klienti','id=eq.'+id).then(function(){
       sbDel('aktivity','klient_id=eq.'+id).then(function(){
         DB.klienti=DB.klienti.filter(function(c){return c.id!==id;});
@@ -2850,7 +2851,6 @@ function doDelete(){
   sbDel(tbl[p.type],'id=eq.'+p.id).then(function(){
     if(p.type==='act'){
       var a=DB.aktivity.find(function(x){return x.id===p.id;});
-      // Uvolnit slot při smazání schůzky
       if(a&&a.typ==='sch'&&a.oz_id&&a.slot&&a.datum){
         var kap=DB.oz_kapacity.find(function(k){return k.oz_id===a.oz_id&&k.datum===a.datum&&k.slot===a.slot;});
         if(kap){kap.obsazeno_klient_id='';sbUpd('oz_kapacity','oz_id=eq.'+a.oz_id+'&datum=eq.'+a.datum+'&slot=eq.'+encodeURIComponent(a.slot),{obsazeno_klient_id:''});}
@@ -2859,7 +2859,17 @@ function doDelete(){
       if(p.extra)renderKarta(p.extra);
     }
     else if(p.type==='user'){DB.uzivatele=DB.uzivatele.filter(function(u){return u.id!==p.id;});renderUsers();}
-    else if(p.type==='kl'){DB.klienti=DB.klienti.filter(function(c){return c.id!==p.id;});selId=null;document.getElementById('mainC').innerHTML='';renderClients();}
+    else if(p.type==='kl'){
+      // Uvolnit všechny kapacity klienta
+      var klientAkts=DB.aktivity.filter(function(a){return a.klient_id===p.id&&a.typ==='sch'&&a.oz_id&&a.slot&&a.datum;});
+      klientAkts.forEach(function(a){
+        var kap=DB.oz_kapacity.find(function(k){return k.oz_id===a.oz_id&&k.datum===a.datum&&k.slot===a.slot;});
+        if(kap){kap.obsazeno_klient_id='';sbUpd('oz_kapacity','oz_id=eq.'+a.oz_id+'&datum=eq.'+a.datum+'&slot=eq.'+encodeURIComponent(a.slot),{obsazeno_klient_id:''});}
+      });
+      DB.klienti=DB.klienti.filter(function(c){return c.id!==p.id;});
+      DB.aktivity=DB.aktivity.filter(function(a){return a.klient_id!==p.id;});
+      selId=null;document.getElementById('mainC').innerHTML='';
+    }
     renderClients();closeModal('confModal');toast('Smazáno');
   });
   pendDel=null;
