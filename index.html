@@ -278,6 +278,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .spin{width:28px;height:28px;border:2.5px solid var(--g1);border-top-color:var(--bm);border-radius:50%;animation:sp .65s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:4px;height:4px}
+.hidden-el{display:none!important}
 ::-webkit-scrollbar-thumb{background:var(--g2);border-radius:2px}
 .oz-pick-row{display:flex;align-items:flex-start;border-bottom:1px solid var(--g1);padding:7px 0}
 .oz-pick-row:last-child{border-bottom:none}
@@ -316,8 +317,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <button class="sbimport" id="importLabel" style="display:none" onclick="document.getElementById('fileInput').click()">Nahrát CSV</button>
-      <input type="file" id="fileInput" accept=".csv" onchange="handleCSVFile(this)" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px">
+      <label id="importLabel" class="sbimport hidden-el" style="margin-bottom:5px">&#x1F4C2; Nahrát CSV<input type="file" id="fileInput" accept=".csv" onchange="handleCSVFile(this)" style="display:block;width:0.1px;height:0.1px;opacity:0;overflow:hidden;position:absolute;z-index:-1"></label>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -1012,7 +1012,8 @@ function startApp(){
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
-  document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
+  var il=document.getElementById('importLabel');
+  if(il){if(CU.role==='mgr'||CU.role==='tl')il.classList.remove('hidden-el');else il.classList.add('hidden-el');}
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
