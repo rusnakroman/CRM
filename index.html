@@ -1320,13 +1320,12 @@ function openActModal(kid){
   var pocet=DB.aktivity.filter(function(a){return a.klient_id===kid&&a.typ==='tel';}).length;
   sett('pokusLbl','Pokus č. '+(pocet+1));
   setHovor('');
-  var ozSel=document.getElementById('actOZ');
-  var ozList=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni;});
-  // Přidej i oz_seznam záznamy pro zpětnou kompatibilitu
-  DB.oz_seznam.forEach(function(o){if(!ozList.find(function(u){return u.id===o.id;}))ozList.push({id:o.id,jmeno:o.jmeno,prijmeni:'',aktivni:true});});
-  ozSel.innerHTML='<option value="">— čeká na přiřazení manažerem —</option>'+
-    ozList.map(function(o){var jm=(o.jmeno+' '+(o.prijmeni||'')).trim()||o.username||o.jmeno;return '<option value="'+o.id+'">'+esc(jm)+'</option>';}).join('');
-  document.getElementById('ozSlotSec').style.display='none';
+  // Reset OZ picker
+  document.getElementById('schDatum').value='';
+  var picker=document.getElementById('ozPicker');
+  if(picker)picker.innerHTML='<div style="padding:10px;text-align:center;color:var(--g3);font-size:11px">Nejprve vyber datum</div>';
+  var info=document.getElementById('schSelInfo');
+  if(info)info.style.display='none';
   onTypChange();
   document.getElementById('actModal').classList.add('open');
 }
@@ -1343,11 +1342,11 @@ function openEditAct(aid,kid){
   document.getElementById('actC').value=a.cas||'';
   document.getElementById('actN').value=a.poznamka||'';
   if(a.typ==='tel'){hovorResult=a.stav||'';setHovor(hovorResult);}
-  var ozSel=document.getElementById('actOZ');
-  var ozList2=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni;});
-  DB.oz_seznam.forEach(function(o){if(!ozList2.find(function(u){return u.id===o.id;}))ozList2.push({id:o.id,jmeno:o.jmeno,prijmeni:'',aktivni:true});});
-  ozSel.innerHTML='<option value="">— čeká na přiřazení manažerem —</option>'+
-    ozList2.map(function(o){var jm=(o.jmeno+' '+(o.prijmeni||'')).trim()||o.username||o.jmeno;return '<option value="'+o.id+'"'+(o.id===a.oz_id?' selected':'')+'>'+esc(jm)+'</option>';}).join('');
+  // Nastav datum schůzky při editaci
+  if(a.typ==='sch'){
+    document.getElementById('schDatum').value=a.datum||'';
+    if(a.datum)renderOzPicker();
+  }
   onTypChange();
   document.getElementById('actModal').classList.add('open');
 }
