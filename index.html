@@ -974,7 +974,7 @@ function startApp(){
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'?'block':'none';
   var hs=document.getElementById('hromSloty');
-  if(hs)hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst" onclick="this.classList.toggle('+chr(39)+'on'+chr(39)+')" data-val="'+h+'">'+h+'</button>';}).join('');
+  if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
   initDashMesic();
   buildNav();buildFilters();renderClients();
   if(CU.role==='oz')showTab('kap');
@@ -2011,7 +2011,7 @@ function saveHromadne(){
   var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
-  var sloty=Array.from(document.querySelectorAll('#hromSloty .kst.on')).map(function(btn){return btn.dataset.val;});
+  var sloty=Array.from(document.querySelectorAll('#hromSloty .hsl.on')).map(function(btn){return btn.dataset.val;});
   if(!sloty.length){toast('Vyber časy','err');return;}
   var dates=getDatesInRange(od,doCls,dny);if(!dates.length){toast('Žádné dny','err');return;}
   var toAdd=[];
@@ -2026,7 +2026,7 @@ function smazHromadne(){
   var oz=getMyOz();if(!oz){toast('OZ profil nenalezen','err');return;}
   var od=v('hromOd'),doCls=v('hromDo');if(!od||!doCls){toast('Vyber datum od a do','err');return;}
   var dny=[document.getElementById('dPo').checked,document.getElementById('dUt').checked,document.getElementById('dSt').checked,document.getElementById('dCt').checked,document.getElementById('dPa').checked,document.getElementById('dSo').checked,document.getElementById('dNe').checked];
-  var sloty=Array.from(document.querySelectorAll('#hromSloty .kst.on')).map(function(btn){return btn.dataset.val;});
+  var sloty=Array.from(document.querySelectorAll('#hromSloty .hsl.on')).map(function(btn){return btn.dataset.val;});
   if(!sloty.length){toast('Vyber časy','err');return;}
   var dates=getDatesInRange(od,doCls,dny);
   var toDel=[];dates.forEach(function(datum){sloty.forEach(function(slot){var kap=DB.oz_kapacity.find(function(k){return k.oz_id===oz.id&&k.datum===datum&&k.slot===slot&&!k.obsazeno_klient_id;});if(kap)toDel.push({datum:datum,slot:slot});});});
