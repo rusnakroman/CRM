@@ -292,7 +292,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 <!-- LOGIN -->
 <div id="ls">
   <div class="lbox">
-    <h2>Schůzkovník</h2>
+    <h2>CRM Navolávání</h2>
     <p>Přihlas se svými údaji</p>
     <div class="lf"><label>Uživatelské jméno</label><input type="text" id="lU" autocomplete="username" placeholder="username"></div>
     <div class="lf"><label>Heslo</label><input type="password" id="lH" placeholder="••••••••"></div>
@@ -317,7 +317,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <label class="sbimport csv-hide" id="importLabel">Nahrát CSV<input type="file" id="fileInput" accept=".csv" onchange="var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value=''"></label>
+      <div id="importLabel" class="csv-hide" ondragover="event.preventDefault()" ondrop="var f=event.dataTransfer.files[0];event.preventDefault();if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8')" style="position:relative;background:var(--bm);color:#fff;text-align:center;padding:10px 8px;border-radius:var(--r);font-size:11px;font-weight:600;margin-bottom:5px;border:2px dashed rgba(255,255,255,.4)">📂 Přetáhni CSV nebo klikni<input type="file" id="fileInput" accept=".csv" onchange="var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value=''" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;font-size:0"></div>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
