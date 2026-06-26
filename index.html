@@ -1020,7 +1020,7 @@ function startApp(){
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
-  var csvLbl=document.getElementById('importLabel');if(CU.role==='mgr'||CU.role==='tl')csvLbl.classList.remove('csv-hide');else csvLbl.classList.add('csv-hide');
+  var csvLbl=document.getElementById('importLabel');console.log('importLabel:',csvLbl,'role:',CU.role);if(CU.role==='mgr'||CU.role==='tl'){csvLbl.classList.remove('csv-hide');console.log('CSV label shown, classes:',csvLbl.className);}else csvLbl.classList.add('csv-hide');
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
