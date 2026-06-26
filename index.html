@@ -7,6 +7,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 .csv-hide{display:none}
+.sbi{background:var(--bm);color:#fff;text-align:center;padding:7px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:block;margin-bottom:5px}
+.sbi:hover{background:var(--bd)}
+.sbi input{display:none}
 :root{
   --bd:#1F3864;--bm:#2F5496;--bl:#EEF3FB;--bll:#F7FAFF;
   --gd:#1A5C1A;--gl:#E8F5E8;--gm:#2E7D32;
@@ -317,7 +320,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <div id="importLabel" class="csv-hide" ondragover="event.preventDefault()" ondrop="var f=event.dataTransfer.files[0];event.preventDefault();if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8')" style="position:relative;background:var(--bm);color:#fff;text-align:center;padding:10px 8px;border-radius:var(--r);font-size:11px;font-weight:600;margin-bottom:5px;border:2px dashed rgba(255,255,255,.4)">📂 Přetáhni CSV nebo klikni<input type="file" id="fileInput" accept=".csv" onchange="var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value=''" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;font-size:0"></div>
+      <label class="sbi" id="importLabel" style="display:none">⬆ Nahrát CSV<input type="file" id="fileInput" accept=".csv"></label>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -1020,7 +1023,7 @@ function startApp(){
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
-  var csvLbl=document.getElementById('importLabel');console.log('importLabel:',csvLbl,'role:',CU.role);if(CU.role==='mgr'||CU.role==='tl'){csvLbl.classList.remove('csv-hide');console.log('CSV label shown, classes:',csvLbl.className);}else csvLbl.classList.add('csv-hide');
+  document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
