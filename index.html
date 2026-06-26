@@ -6,6 +6,7 @@
 <title>Schůzkovník</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+.csv-hide{display:none}
 :root{
   --bd:#1F3864;--bm:#2F5496;--bl:#EEF3FB;--bll:#F7FAFF;
   --gd:#1A5C1A;--gl:#E8F5E8;--gm:#2E7D32;
@@ -316,7 +317,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="sb">
     <div class="sbh">
       <div class="sbh-title">Klienti</div>
-      <label class="sbimport" id="importLabel" style="display:none">Nahrát CSV<input type="file" id="fileInput" accept=".csv" onchange="var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value=''"></label>
+      <label class="sbimport csv-hide" id="importLabel">Nahrát CSV<input type="file" id="fileInput" accept=".csv" onchange="var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value=''"></label>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
@@ -1019,7 +1020,7 @@ function startApp(){
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
-  document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
+  var csvLbl=document.getElementById('importLabel');if(CU.role==='mgr'||CU.role==='tl')csvLbl.classList.remove('csv-hide');else csvLbl.classList.add('csv-hide');
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
