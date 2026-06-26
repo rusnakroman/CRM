@@ -1143,25 +1143,7 @@ function parseCSV(text){
     });
   }
   if(!ins.length){toast('Žádní noví klienti k importu');return;}
-  // Doplnit okres z Google Maps pro klienty bez okresu
-  var bezOkresu=ins.filter(function(k){return !k.okres&&k.mesto;});
-  if(bezOkresu.length){
-    var doneGeo=0;
-    bezOkresu.forEach(function(k){
-      fetch('https://maps.googleapis.com/maps/api/geocode/json?address='+encodeURIComponent(k.mesto+', Česká republika')+'&key=AIzaSyD-PLACEHOLDER&language=cs&region=cz')
-        .then(function(r){return r.json();})
-        .then(function(d){
-          if(d.results&&d.results[0]){
-            var comps=d.results[0].address_components||[];
-            var admin=comps.find(function(c){return c.types.indexOf('administrative_area_level_2')>=0;});
-            if(admin)k.okres=admin.long_name.replace('Okres ','');
-          }
-          if(++doneGeo===bezOkresu.length)startImport();
-        }).catch(function(){if(++doneGeo===bezOkresu.length)startImport();});
-    });
-  } else {
-    startImport();
-  }
+  startImport();
   function startImport(){
   showLoader('Importuji '+ins.length+' klientů...');
   var batches=[],bi=0;for(var i=0;i<ins.length;i+=50)batches.push(ins.slice(i,i+50));
@@ -1170,7 +1152,7 @@ function parseCSV(text){
     sbIns('klienti',batches[bi++]).then(next).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
   }
   next();
-  } // end startImport
+  }
 }
 
 // ══ SIDEBAR FILTERS ══════════════════════════════════════════
