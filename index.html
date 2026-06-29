@@ -82,7 +82,14 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .clist::-webkit-scrollbar-thumb{background:var(--g2);border-radius:2px}
 
 /* KLIENTSKÁ KARTA V SEZNAMU */
-.cc{padding:8px 9px;border-radius:var(--r);margin-bottom:2px;cursor:pointer;border:1.5px solid transparent;background:var(--g0);transition:all .12s}
+.cc{padding:8px 9px 8px 12px;border-radius:var(--r);margin-bottom:2px;cursor:pointer;border:1.5px solid transparent;background:var(--g0);transition:all .12s;border-left:4px solid var(--g2)}
+.cc.st-novy{border-left-color:#42A5F5}
+.cc.st-otevreny{border-left-color:#FFA726}
+.cc.st-uz_schuzka{border-left-color:#66BB6A}
+.cc.st-oz_obchod{border-left-color:#2E7D32}
+.cc.st-uz_nedovolano{border-left-color:#FFCA28}
+.cc.st-oz_odlozeno{border-left-color:#AB47BC}
+.cc.st-uz_nezajem,.cc.st-oz_nezajem,.cc.st-oz_zrusena,.cc.st-uz_neznam{border-left-color:#EF5350;opacity:.65}
 .cc:hover{background:var(--bl);border-color:#C5D8F0}
 .cc.active{background:var(--bl);border-color:var(--bm)}
 .cc.dnes{border-left:2px solid var(--rd)}
@@ -289,13 +296,21 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 .oz-pick-slots{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;flex:1}
 .oz-noslot{font-size:10px;color:var(--g3);padding:6px 4px;font-style:italic;align-self:center}
 
+
+@media print{
+  .header, .sidebar, .sb, .hbtn, .btn, .nav, .tabs, button{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  .dc{break-inside:avoid;page-break-inside:avoid;margin-bottom:20px}
+  .tbl{font-size:10pt}
+  .kpi-row{break-inside:avoid}
+}
 </style>
 </head>
 <body>
 <!-- LOGIN -->
 <div id="ls">
   <div class="lbox">
-    <h2>Schůzkovník</h2>
+    <h2>CRM Navolávání</h2>
     <p>Přihlas se svými údaji</p>
     <div class="lf"><label>Uživatelské jméno</label><input type="text" id="lU" autocomplete="username" placeholder="username"></div>
     <div class="lf"><label>Heslo</label><input type="password" id="lH" placeholder="••••••••"></div>
@@ -310,6 +325,11 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <div class="hright">
     <div class="upill"><span id="hdrJ"></span><span class="rb" id="hdrR"></span></div>
     <button class="hbtn" id="backBtn" style="display:none;color:#FFD700;border-color:rgba(255,215,0,.4)" onclick="backToMe()">← Zpět na moje</button>
+    <div class="notif-wrap" style="position:relative">
+      <button class="hbtn" id="notifBtn" onclick="toggleNotif()" style="position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#E53935;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;display:none;align-items:center;justify-content:center;font-weight:700">0</span></button>
+      <div id="notifPanel" style="display:none;position:absolute;top:35px;right:0;background:#fff;border:1px solid var(--g1);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);width:320px;max-height:400px;overflow-y:auto;z-index:1000"></div>
+    </div>
+    <button class="hbtn" id="notifBtn" style="display:none;position:relative;padding:6px 9px" onclick="toggleNotif()">🔔<span id="notifBadge" style="display:none;position:absolute;top:0;right:0;background:#E53935;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:14px;text-align:center">0</span></button>
     <button class="hbtn" onclick="openPwModal()">Heslo</button>
     <button class="hbtn" onclick="doLogout()">Odhlásit</button>
   </div>
@@ -822,6 +842,15 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   </div>
 </div>
 
+<!-- Notifikace popup -->
+<div id="notifPopup" style="display:none;position:fixed;top:55px;right:14px;width:340px;max-height:500px;background:#fff;border:1px solid var(--g1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:200;overflow:hidden">
+  <div style="padding:10px 14px;border-bottom:1px solid var(--g1);background:var(--bd);color:#fff;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+    <span>🔔 Notifikace</span>
+    <button onclick="document.getElementById('notifPopup').style.display='none'" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0">×</button>
+  </div>
+  <div id="notifList" style="max-height:440px;overflow-y:auto;padding:6px"></div>
+</div>
+
 <!-- Email OZ -->
 <div class="overlay" id="emailOzModal">
   <div class="modal" style="width:420px">
@@ -984,7 +1013,7 @@ function loadAll(cb){
           kl=kl.filter(function(k){return myIds.indexOf(k.id)>=0;});
         }
         DB={klienti:kl, aktivity:res.aktivity||[], oz_seznam:res.oz_seznam||[],
-            oz_kapacity:res.oz_kapacity||[], uzivatele:res.uzivatele||[], kampane:res.kampane||[]};
+            oz_kapacity:res.oz_kapacity||[], uzivatele:res.uzivatele||[], kampane:res.kampane||[], historie_zmen:res.historie_zmen||[]};
         // Vždy aktualizuj oz_id z čerstvých dat DB
         if(CU){
           var freshU=(res.uzivatele||[]).find(function(u){return u.id===CU.id;});
@@ -1028,6 +1057,7 @@ function startApp(){
   document.getElementById('ls').style.display='none';
   document.getElementById('hdr').style.display='flex';
   sett('hdrJ',CU.dn);
+  updNotifs();
   var backBtn=document.getElementById('backBtn');
   if(backBtn)backBtn.style.display=originalCU?'inline-block':'none';
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
@@ -1041,7 +1071,9 @@ function startApp(){
 
   if(CU.role==='oz')showTab('kap');
   else if(CU.role==='mgr'||CU.role==='tl')showTab('dash');
-  else showTab('klienti');
+  else {showTab('klienti');renderEmptyMain();}
+  updNotifBadge();
+  setInterval(updNotifBadge,30000);
 }
 
 // ══ NAV ══════════════════════════════════════════════════════
@@ -1197,6 +1229,9 @@ function getNedovolanoCount(kid){
   return DB.aktivity.filter(function(a){return a.klient_id===kid&&a.typ==='tel'&&a.stav==='nedovolano';}).length;
 }
 
+// Auto-refresh notifikací
+setInterval(function(){if(typeof updNotifs==='function'&&CU)updNotifs();},60000);
+
 function renderClients(){
   var q=(v('srch')||'').toLowerCase();
   var fk=v('fK'),fo=v('fO'),fst=v('fStav')||'aktivni';
@@ -1241,7 +1276,14 @@ function renderClients(){
     var dni=getDniBezKontaktu(c.id);
     var op=c.prirazen_op?DB.uzivatele.find(function(u){return u.id===c.prirazen_op;}):null;
     var opJm=op?((op.jmeno||'').charAt(0)+(op.prijmeni||'').charAt(0)):'';
-    return '<div class="cc'+(selId===c.id?' active':'')+(isDnes?' dnes':'')+'" style="position:relative">'+
+    var brC='var(--g1)';
+    if(kat==='novy')brC='#4FC3F7';
+    else if(kat==='otevreny')brC='#FFB74D';
+    else if(kat==='uz_schuzka')brC='#66BB6A';
+    else if(kat==='oz_obchod')brC='#2E7D32';
+    else if(kat&&kat.startsWith('uz_'))brC='#9E9E9E';
+    else if(kat&&kat.startsWith('oz_'))brC='#9E9E9E';
+    return '<div class="cc'+(selId===c.id?' active':'')+(isDnes?' dnes':'')+'" style="position:relative;border-left-color:'+brC+'">'+
       (CU.role==='mgr'?'<input type="checkbox" class="kl-cb" data-id="'+c.id+'" onclick="event.stopPropagation();togKlVyber(this)" style="position:absolute;top:8px;right:6px;width:14px;height:14px;accent-color:var(--rd);cursor:pointer;z-index:2">':'')+
       '<div onclick="selClient(\''+c.id+'\')" style="padding-right:20px">'+
       '<div class="ccrow1">'+
@@ -1270,6 +1312,45 @@ function updStats(){
 }
 
 // ══ KARTA KLIENTA ════════════════════════════════════════════
+function renderEmptyMain(){
+  var mc=document.getElementById('mainC');
+  if(!mc)return;
+  if(CU.role==='op'){
+    // Plánovač pro operátorku
+    var mojeKli=DB.klienti.filter(function(k){return String(k.prirazen_op||'')===String(CU.id);}).map(function(k){return k.id;});
+    var moje=DB.aktivity.filter(function(a){return a.typ==='plan'&&mojeKli.indexOf(a.klient_id)>=0;});
+    var dnes=moje.filter(function(a){return a.datum===TODAY;});
+    var zitra=new Date(TODAY);zitra.setDate(zitra.getDate()+1);var zStr=zitra.toISOString().slice(0,10);
+    var tyden=new Date(TODAY);tyden.setDate(tyden.getDate()+7);var tStr=tyden.toISOString().slice(0,10);
+    var zitraA=moje.filter(function(a){return a.datum===zStr;});
+    var tydenA=moje.filter(function(a){return a.datum>zStr&&a.datum<=tStr;});
+    var stare=moje.filter(function(a){return a.datum<TODAY;});
+    
+    function actRow(a){
+      var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+      return '<div onclick="selClient(\''+a.klient_id+'\')" style="padding:8px 10px;background:var(--wh);border:1px solid var(--g1);border-radius:6px;margin-bottom:5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
+        '<div><div style="font-weight:600;font-size:12px">'+esc(k.klient||'?')+'</div>'+
+        '<div style="font-size:10px;color:var(--g3)">'+esc(k.telefon||'')+(a.poznamka?' · '+esc(a.poznamka):'')+'</div></div>'+
+        '<div style="font-size:11px;font-weight:600;color:var(--bd)">'+(a.cas||'—')+'</div>'+
+      '</div>';
+    }
+    
+    var html='<div style="padding:20px;max-width:800px;margin:0 auto">'+
+      '<h2 style="color:var(--bd);margin-bottom:16px">📞 Plán volání</h2>'+
+      (stare.length?'<div style="background:#FFF3E0;padding:12px;border-radius:8px;margin-bottom:14px"><div style="font-weight:700;color:#E65100;margin-bottom:8px;font-size:13px">⚠ Po termínu ('+stare.length+')</div>'+stare.map(actRow).join('')+'</div>':'')+
+      '<div style="background:var(--bll);padding:12px;border-radius:8px;margin-bottom:14px"><div style="font-weight:700;color:var(--bd);margin-bottom:8px;font-size:13px">📅 Dnes ('+dnes.length+')</div>'+
+        (dnes.length?dnes.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné plánované volání</div>')+'</div>'+
+      '<div style="background:var(--gl);padding:12px;border-radius:8px;margin-bottom:14px"><div style="font-weight:700;color:var(--gm);margin-bottom:8px;font-size:13px">🌅 Zítra ('+zitraA.length+')</div>'+
+        (zitraA.length?zitraA.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné plánované volání</div>')+'</div>'+
+      '<div style="background:var(--g0);padding:12px;border-radius:8px"><div style="font-weight:700;color:var(--g4);margin-bottom:8px;font-size:13px">📆 Tento týden ('+tydenA.length+')</div>'+
+        (tydenA.length?tydenA.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné plánované volání</div>')+'</div>'+
+    '</div>';
+    mc.innerHTML=html;
+  } else {
+    mc.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:8px;color:var(--g3)"><div style="font-size:32px;opacity:.3">←</div><p>Vyber klienta ze seznamu</p></div>';
+  }
+}
+
 function selClient(id){selId=id;renderClients();renderKarta(id);}
 
 function renderKarta(id){
@@ -1363,12 +1444,29 @@ function renderKarta(id){
   '</div>'+
   '<div class="al">'+(acts.length?acts.map(function(a){return renderActH(a,id);}).join(''):'<div class="eact">Zatím žádné aktivity.</div>')+'</div>';
 
+  // Historie změn
+  var historie=(DB.historie_zmen||[]).filter(function(h){return h.klient_id===id;}).sort(function(a,b){return a.datum<b.datum?1:-1;});
+  if(historie.length){
+    html+='<div class="acts" style="margin-top:14px"><div class="ah"><h3>Historie změn ('+historie.length+')</h3></div>'+
+      '<div class="al" style="background:var(--gl)">'+
+      historie.slice(0,20).map(function(h){
+        var d=new Date(h.datum);
+        return '<div style="padding:6px 10px;border-bottom:1px solid var(--g1);font-size:11px">'+
+          '<span style="color:var(--g3)">'+d.toLocaleDateString('cs-CZ')+' '+d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})+'</span> · '+
+          '<strong>'+esc(h.akce)+'</strong>'+
+          (h.detail?' – '+esc(h.detail):'')+
+          ' <span style="color:var(--g3);font-style:italic">('+esc(h.uzivatel)+')</span>'+
+        '</div>';
+      }).join('')+
+      '</div></div>';
+  }
+
   html+='</div></div>';
   mc.innerHTML=html;
 }
 
 function renderActH(a,kid){
-  var icoMap={tel:'aic-tel',sch:'aic-sch',plan:'aic-plan',prerazeni:'aic-pre',email:'aic-em'};
+  var icoMap={tel:'aic-tel',sch:'aic-sch',plan:'aic-plan',prerazeni:'aic-pre',email:'aic-em',log:'aic-pre'};
   var symMap={tel:'T',sch:'S',plan:'P',prerazeni:'→',email:'E'};
   var lblMap={tel:'Telefonát',sch:'Schůzka',plan:'Naplánované volání',prerazeni:'Přeřazení',email:'E-mail'};
   var oz=a.oz_id?getOzById(a.oz_id):null;
@@ -1401,7 +1499,7 @@ function renderActH(a,kid){
         (!schStav&&oz&&(CU.role==='oz'||CU.role==='mgr'||CU.role==='tl')?'<button class="btn btn-g btn-sm" data-kid="'+kid+'" data-aid="'+a.id+'" onclick="openSchStavModal(this.dataset.kid,this.dataset.aid)">Výsledek</button>':'')+
         (oz&&(CU.role==='oz'||CU.role==='mgr'||CU.role==='tl')&&!a.potvrzeno?'<button class="btn btn-ok btn-sm" data-aid="'+(a.id)+'" data-kid="'+(kid)+'" onclick="potvrditSch(this.dataset.aid,this.dataset.kid)">Potvrdit</button>':'')+
         ((CU.role==='oz'||CU.role==='mgr'||CU.role==='tl')?'<button class="btn btn-g btn-sm" data-aid="'+a.id+'" data-kid="'+kid+'" onclick="openPrehoditModal(this.dataset.aid,this.dataset.kid)">Přehodit</button>':'')+
-      '</div>':'')+
+      '</div></div>':'')+
       '<div class="afoot">'+esc(a.vytvoril||'—')+'</div>'+
     '</div></div>';
 }
@@ -1440,6 +1538,9 @@ function openActModal(kid){
   var pocet=DB.aktivity.filter(function(a){return a.klient_id===kid&&a.typ==='tel';}).length;
   sett('pokusLbl','Pokus č. '+(pocet+1));
   setHovor('');
+  if(document.getElementById('dovDalsi'))document.getElementById('dovDalsi').checked=false;
+  if(document.getElementById('dovDalsiPlan'))document.getElementById('dovDalsiPlan').style.display='none';
+  if(document.getElementById('dovDalsiSec'))document.getElementById('dovDalsiSec').style.display='none';
   // Reset OZ picker
   document.getElementById('schDatum').value='';
   var picker=document.getElementById('ozPicker');
@@ -1683,6 +1784,8 @@ function saveUzavreni(){
   var d=v('uzavrD');if(!d){toast('Vyber důvod','err');return;}
   var upd={stav_klienta:d};
   if(d==='uz_nezajem'){var poz=v('uzavrPoz');if(poz)upd.poznamka_klienta=poz;}
+  var labelMap={uz_nedovolano:'Nedovoláno',uz_neznam:'Neznámý kontakt',uz_nezajem:'Nemá zájem',uz_schuzka:'Domluvena schůzka'};
+  logChange(uzavrKid,'Klient uzavřen: '+(labelMap[d]||d));
   sbUpd('klienti','id=eq.'+uzavrKid,upd).then(function(){
     var k=DB.klienti.find(function(c){return c.id===uzavrKid;});if(k)Object.assign(k,upd);
     closeModal('uzavrModal');selId=null;
@@ -1951,7 +2054,7 @@ function sendEmail(a,klient){
     '<tr><td style="padding:7px 12px;color:#666">Zapsal/a</td><td style="padding:7px 12px">'+esc(a.vytvoril||'—')+'</td></tr>'+
     '</table>'+
     '<div style="background:#E8F5E8;border:1px solid #A5D6A7;border-radius:5px;padding:9px 12px;margin-top:14px;font-size:12px">V příloze je soubor schuzka.ics – otevřením ho přidáte do svého kalendáře.</div>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:12px">Schůzkovník</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:12px">CRM Navolávání</p></div>';
   var icsText=buildICS(a,klient,oz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
   // Odeslat přes Supabase Edge Function (řeší CORS)
@@ -1992,7 +2095,7 @@ function sendEmailPrehod(a,klient,noOz,datum,slot){
     '<h2 style="color:#1F3864;border-bottom:2px solid #1F3864;padding-bottom:7px;margin-bottom:14px">Schůzka přehozena</h2>'+
     '<p style="margin-bottom:12px">Schůzka s klientem <strong>'+esc(klient.klient)+'</strong> byla přehozena na: <strong>'+esc(noOz.jmeno)+'</strong></p>'+
     '<p>Datum: <strong>'+fmtD(datum)+(slot?' · '+slot:'')+'</strong></p>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:12px">Schůzkovník</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:12px">CRM Navolávání</p></div>';
   var fakeA={datum:datum,slot:slot,poznamka:a.poznamka,vytvoril:CU.dn};
   var icsText=buildICS(fakeA,klient,noOz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
@@ -2353,13 +2456,77 @@ function renderDash(r){
     '<div class="kpi kpi-p"><div class="kpi-v">'+konv+'%</div><div class="kpi-l">Konverze OZ ('+mesic+')</div></div>'+
   '</div>';
 
+  // NAROZENINY - dnes a tento týden
+  var bDays=klienti.filter(function(k){
+    if(!k.rodne_cislo||k.rodne_cislo.length<6)return false;
+    var rc=k.rodne_cislo.replace(/\D/g,'');
+    if(rc.length<6)return false;
+    var m=parseInt(rc.substr(2,2),10);
+    var d=parseInt(rc.substr(4,2),10);
+    if(m>50)m-=50; // ženy
+    if(m<1||m>12||d<1||d>31)return false;
+    var today=new Date();
+    var bd=new Date(today.getFullYear(),m-1,d);
+    var diff=Math.floor((bd-today)/(1000*60*60*24));
+    return diff>=-1&&diff<=7;
+  });
+  if(bDays.length){
+    html+='<div class="dc"><h3>🎂 Narozeniny (tento týden)</h3>'+
+      '<table class="tbl"><thead><tr><th>Klient</th><th>Datum</th><th>Telefon</th></tr></thead><tbody>'+
+      bDays.map(function(k){
+        var rc=k.rodne_cislo.replace(/\D/g,'');
+        var m=parseInt(rc.substr(2,2),10);if(m>50)m-=50;
+        var d=parseInt(rc.substr(4,2),10);
+        return '<tr><td style="font-weight:600"><a href="javascript:showTab(\'klienti\');selClient(\''+k.id+'\')" style="color:var(--bd);text-decoration:none">'+esc(k.klient)+'</a></td>'+
+          '<td>'+d+'. '+m+'.</td>'+
+          '<td>'+esc(k.telefon||'—')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  // NAROZENINY DNES A TENTO TÝDEN
+  function birthdayThisWeek(){
+    var dnes=new Date(TODAY);
+    var konec=new Date(TODAY);konec.setDate(konec.getDate()+7);
+    return klienti.filter(function(k){
+      if(!k.rodne_cislo)return false;
+      var rc=k.rodne_cislo.replace(/[^0-9]/g,'');
+      if(rc.length<6)return false;
+      var mm=parseInt(rc.slice(2,4));if(mm>50)mm-=50;
+      var dd=parseInt(rc.slice(4,6));
+      if(mm<1||mm>12||dd<1||dd>31)return false;
+      var rok=dnes.getFullYear();
+      var bday=new Date(rok,mm-1,dd);
+      if(bday<dnes)bday.setFullYear(rok+1);
+      return bday>=dnes&&bday<=konec;
+    }).map(function(k){
+      var rc=k.rodne_cislo.replace(/[^0-9]/g,'');
+      var mm=parseInt(rc.slice(2,4));if(mm>50)mm-=50;
+      var dd=parseInt(rc.slice(4,6));
+      return {klient:k,dd:dd,mm:mm};
+    });
+  }
+  var bdays=birthdayThisWeek();
+  
   // UPOZORNĚNÍ
-  if(cekaNaOz.length||stare10.length||nepotvrz.length){
+  if(cekaNaOz.length||stare10.length||nepotvrz.length||bdays.length){
     html+='<div class="dc"><h3>Upozornění</h3>'+
       (cekaNaOz.length?'<div class="drow dph-item-warn"><span>Schůzky čekající na přiřazení OZ</span><span class="dnum dn-r">'+cekaNaOz.length+'</span></div>':'')+
       (stare10.length?'<div class="drow dph-item-warn"><span>Schůzky starší 10 dní bez aktualizace</span><span class="dnum dn-r">'+stare10.length+'</span></div>':'')+
       (nepotvrz.length?'<div class="drow dph-item-warn"><span>Nepotvrzené schůzky OZ (nad 2 dny)</span><span class="dnum dn-r">'+nepotvrz.length+'</span></div>':'')+
+      (bdays.length?'<div class="drow" style="background:#FFF3E0"><span>🎂 Narozeniny tento týden</span><span class="dnum" style="background:#FB8C00;color:#fff">'+bdays.length+'</span></div>':'')+
     '</div>';
+  }
+  
+  // SEZNAM NAROZENIN
+  if(bdays.length){
+    html+='<div class="dc"><h3>🎂 Narozeniny tento týden</h3>'+
+      '<table class="tbl"><thead><tr><th>Klient</th><th>Datum</th><th>Telefon</th><th>Akce</th></tr></thead><tbody>'+
+      bdays.map(function(b){
+        return '<tr><td style="font-weight:600">'+esc(b.klient.klient)+'</td>'+
+          '<td>'+b.dd+'. '+b.mm+'.</td>'+
+          '<td>'+esc(b.klient.telefon||'—')+'</td>'+
+          '<td><a href="javascript:showTab(\'klienti\');selClient(\''+b.klient.id+'\')" style="color:var(--bd);font-weight:600">Otevřít</a></td></tr>';
+      }).join('')+'</tbody></table></div>';
   }
   
   // SEZNAM SCHŮZEK ČEKAJÍCÍCH NA PŘIŘAZENÍ
@@ -2509,7 +2676,7 @@ function renderDash(r){
     mesRep[m][opK].volanych=Object.keys(mesRep[m][opK]._vol).length;
   });
   var mesK=Object.keys(mesRep).sort().reverse().slice(0,6);
-  html+='<div class="dc"><h3>Měsíční přehled – operátorky <button class="btn btn-g btn-sm" onclick="exportMesicni()">Export</button></h3>'+
+  html+='<div class="dc"><h3>Měsíční přehled – operátorky <button class="btn btn-g btn-sm" onclick="exportMesicni()">Export CSV</button> <button class="btn btn-g btn-sm" onclick="exportPDF()">Tisk / PDF</button></h3>'+
     (mesK.length?'<table class="tbl"><thead><tr><th>Měsíc</th><th>Operátorka</th><th class="c">Vol. klientů</th><th class="c">Schůzky</th><th class="c">Konv.%</th></tr></thead><tbody>'+
     mesK.map(function(m){
       return Object.entries(mesRep[m]).map(function(e,i){
@@ -2544,6 +2711,10 @@ function exportData(typ){
     });
   }
   dlCSV(rows,headers,typ+'.csv');
+}
+
+function exportPDF(){
+  window.print();
 }
 
 function exportMesicni(){
@@ -2584,6 +2755,50 @@ function exportMesicni(){
 function exportOdmeny(){
   if(CU.role==='tl'){toast('Export je dostupný jen pro manažera','err');return;}
   exportMesicni();
+}
+
+function exportPDF(){
+  if(CU.role==='tl'&&CU.role!=='mgr'){toast('Export je dostupný jen pro manažera','err');return;}
+  var mesic=v('dashMesic')||TODAY.slice(0,7);
+  var w=window.open('','_blank');
+  var schuzky=DB.aktivity.filter(function(a){return a.typ==='sch'&&(a.datum||'').startsWith(mesic);});
+  var hovory=DB.aktivity.filter(function(a){return a.typ==='tel'&&(a.datum||'').startsWith(mesic);});
+  var usp=schuzky.filter(function(a){return a.stav==='oz_obchod';}).length;
+  var konv=schuzky.length?Math.round(usp/schuzky.length*100):0;
+  var hodnota=schuzky.reduce(function(s,a){return s+(parseFloat(a.hodnota)||0);},0);
+  
+  var ozStat={};
+  schuzky.forEach(function(a){
+    var oz=DB.uzivatele.find(function(u){return u.id===a.oz_id;});
+    var jm=oz?((oz.jmeno+' '+oz.prijmeni).trim()||oz.username):'Nepřiřazeno';
+    if(!ozStat[jm])ozStat[jm]={s:0,o:0,z:0,h:0};
+    ozStat[jm].s++;
+    if(a.stav==='oz_obchod'){ozStat[jm].o++;ozStat[jm].h+=parseFloat(a.hodnota)||0;}
+    if(a.stav==='oz_zrusena')ozStat[jm].z++;
+  });
+  
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report '+mesic+'</title>'+
+    '<style>body{font-family:Arial;padding:30px;color:#1a1a2e}h1{color:#1F3864;border-bottom:3px solid #1F3864;padding-bottom:8px}h2{color:#1F3864;margin-top:24px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e0e0e0}th{background:#EEF3FB;color:#1F3864;font-weight:700}.kpi{display:inline-block;background:#EEF3FB;padding:12px 18px;margin:4px;border-radius:8px;min-width:120px}.kpi-v{font-size:24px;font-weight:700;color:#1F3864}.kpi-l{font-size:11px;color:#666;text-transform:uppercase}.muted{color:#888;font-size:11px}@media print{body{padding:10px}}</style></head><body>'+
+    '<h1>Měsíční report '+mesic+'</h1>'+
+    '<div class="muted">Vygenerováno '+new Date().toLocaleString('cs-CZ')+' · ČSOB Pojišťovna</div>'+
+    '<div style="margin:20px 0">'+
+      '<div class="kpi"><div class="kpi-v">'+schuzky.length+'</div><div class="kpi-l">Schůzek</div></div>'+
+      '<div class="kpi"><div class="kpi-v">'+hovory.length+'</div><div class="kpi-l">Telefonátů</div></div>'+
+      '<div class="kpi"><div class="kpi-v">'+usp+'</div><div class="kpi-l">Obchodů</div></div>'+
+      '<div class="kpi"><div class="kpi-v">'+konv+'%</div><div class="kpi-l">Konverze</div></div>'+
+      '<div class="kpi"><div class="kpi-v">'+hodnota.toLocaleString('cs-CZ')+' Kč</div><div class="kpi-l">Hodnota obchodu</div></div>'+
+    '</div>'+
+    '<h2>Obchodní zástupci</h2><table><thead><tr><th>OZ</th><th>Schůzky</th><th>Obchod</th><th>Zrušeno</th><th>Konv.%</th><th>Hodnota</th></tr></thead><tbody>'+
+    Object.entries(ozStat).map(function(e){
+      var pct=e[1].s?Math.round(e[1].o/e[1].s*100):0;
+      return '<tr><td>'+esc(e[0])+'</td><td>'+e[1].s+'</td><td><strong>'+e[1].o+'</strong></td><td>'+e[1].z+'</td><td><strong>'+pct+'%</strong></td><td>'+e[1].h.toLocaleString('cs-CZ')+' Kč</td></tr>';
+    }).join('')+
+    '</tbody></table>'+
+    '<div style="margin-top:30px;text-align:center"><button onclick="window.print()" style="padding:12px 24px;background:#1F3864;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">🖨 Vytisknout / Uložit jako PDF</button></div>'+
+    '</body></html>';
+  
+  w.document.write(html);
+  w.document.close();
 }
 
 function dlCSV(rows,headers,fname){
@@ -2915,6 +3130,83 @@ function loginAs(username, heslo){
     }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
 }
 
+// ══ NOTIFIKACE ════════════════════════════════════════════════
+function getNotifs(){
+  if(!CU||(CU.role!=='mgr'&&CU.role!=='tl'))return [];
+  var notifs=[];
+  var schuzky=DB.aktivity.filter(function(a){return a.typ==='sch';});
+  
+  // Schůzky čekající na přiřazení
+  schuzky.filter(function(a){return a.stav==='ceka_oz';}).forEach(function(a){
+    var kl=DB.klienti.find(function(k){return k.id===a.klient_id;})||{};
+    notifs.push({type:'ceka',kid:a.klient_id,aid:a.id,text:'Schůzka čeká na přiřazení OZ',sub:kl.klient+' · '+fmtD(a.datum),date:a.datum});
+  });
+  
+  // Nepotvrzené schůzky > 2 dny  
+  schuzky.filter(function(a){
+    if(a.potvrzeno||!a.datum||a.stav==='oz_obchod'||a.stav==='oz_nezajem'||a.stav==='oz_zrusena')return false;
+    var d=new Date(a.datum);var diff=Math.floor((new Date()-d)/(1000*60*60*24));return diff>2;
+  }).forEach(function(a){
+    var kl=DB.klienti.find(function(k){return k.id===a.klient_id;})||{};
+    notifs.push({type:'nepot',kid:a.klient_id,aid:a.id,text:'Nepotvrzená schůzka',sub:kl.klient+' · '+fmtD(a.datum),date:a.datum});
+  });
+  
+  // Pro TL filtrovat jen jejich OZ
+  if(CU.role==='tl'){
+    notifs=notifs.filter(function(n){
+      var a=DB.aktivity.find(function(x){return x.id===n.aid;});
+      if(!a||!a.oz_id)return true;
+      var oz=DB.uzivatele.find(function(u){return u.id===a.oz_id||u.oz_id===a.oz_id;});
+      return oz&&String(oz.tl_id||'')===String(CU.id);
+    });
+  }
+  
+  return notifs;
+}
+
+function updNotifs(){
+  var btn=document.getElementById('notifBtn');
+  var badge=document.getElementById('notifBadge');
+  if(!btn)return;
+  if(CU.role!=='mgr'&&CU.role!=='tl'){btn.style.display='none';return;}
+  btn.style.display='inline-flex';
+  var notifs=getNotifs();
+  if(notifs.length>0){
+    badge.style.display='block';
+    badge.textContent=notifs.length>99?'99+':notifs.length;
+  } else {
+    badge.style.display='none';
+  }
+}
+
+function toggleNotif(){
+  var pop=document.getElementById('notifPopup');
+  if(pop.style.display==='block'){pop.style.display='none';return;}
+  var notifs=getNotifs();
+  var list=document.getElementById('notifList');
+  if(!notifs.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--g3);font-size:12px">Žádné notifikace</div>';
+  } else {
+    list.innerHTML=notifs.map(function(n){
+      var ic=n.type==='ceka'?'⏳':'⚠';
+      var cl=n.type==='ceka'?'#E65100':'#C62828';
+      return '<div onclick="document.getElementById(\'notifPopup\').style.display=\'none\';showTab(\'klienti\');selClient(\''+n.kid+'\')" style="padding:8px 10px;border-bottom:1px solid var(--g1);cursor:pointer;display:flex;gap:8px;align-items:flex-start" onmouseover="this.style.background=\'var(--bll)\'" onmouseout="this.style.background=\'\'">'+
+        '<span style="font-size:18px">'+ic+'</span>'+
+        '<div style="flex:1"><div style="font-weight:700;font-size:11px;color:'+cl+'">'+n.text+'</div><div style="font-size:11px;color:var(--g3);margin-top:2px">'+esc(n.sub)+'</div></div>'+
+      '</div>';
+    }).join('');
+  }
+  pop.style.display='block';
+}
+
+// ══ HISTORIE ZMĚN ════════════════════════════════════════════
+function logZmena(klient_id, akce, detail){
+  if(!klient_id)return;
+  var h={id:uid(),klient_id:klient_id,akce:akce,detail:detail||'',
+         uzivatel:CU.dn||CU.username,datum:new Date().toISOString()};
+  sbIns('historie_zmen',h).catch(function(){});
+}
+
 function backToMe(){
   if(!originalCU){toast('Nemáš původní přihlášení','err');return;}
   CU=JSON.parse(JSON.stringify(originalCU));
@@ -2923,6 +3215,92 @@ function backToMe(){
   loadAll(startApp);
   toast('Zpět jako '+CU.dn,'ok');
 }
+
+
+// ══ NOTIFIKACE ══════════════════════════════════════════════
+function getNotifs(){
+  var notifs=[];
+  // Pro mgr/tl
+  if(CU.role==='mgr'||CU.role==='tl'){
+    var cekaNaOz=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.stav==='ceka_oz';});
+    if(CU.role==='tl'){
+      cekaNaOz=cekaNaOz.filter(function(a){
+        var ozU=DB.uzivatele.find(function(u){return u.id===a.oz_id||u.oz_id===a.oz_id;});
+        return !ozU||String(ozU.tl_id||'')===String(CU.id);
+      });
+    }
+    cekaNaOz.forEach(function(a){
+      var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+      notifs.push({typ:'cekaOz',text:'Schůzka čeká: '+(k.klient||'?'),aid:a.id,kid:a.klient_id,datum:a.datum});
+    });
+    var nepotvrz=DB.aktivity.filter(function(a){
+      if(a.typ!=='sch'||a.potvrzeno||!a.datum)return false;
+      var d=new Date(a.datum);var diff=Math.floor((new Date()-d)/(1000*60*60*24));return diff>2;
+    });
+    if(CU.role==='tl'){
+      nepotvrz=nepotvrz.filter(function(a){
+        var ozU=DB.uzivatele.find(function(u){return u.id===a.oz_id||u.oz_id===a.oz_id;});
+        return !ozU||String(ozU.tl_id||'')===String(CU.id);
+      });
+    }
+    nepotvrz.forEach(function(a){
+      var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+      notifs.push({typ:'nepotvr',text:'Nepotvrzeno: '+(k.klient||'?'),aid:a.id,kid:a.klient_id,datum:a.datum});
+    });
+  }
+  // Pro op - dnes naplánovaná volání
+  if(CU.role==='op'){
+    var dnesVolani=DB.aktivity.filter(function(a){return a.typ==='plan'&&a.datum===TODAY;});
+    var mojiKli=DB.klienti.filter(function(k){return String(k.prirazen_op||'')===String(CU.id);}).map(function(k){return k.id;});
+    dnesVolani.filter(function(a){return mojiKli.indexOf(a.klient_id)>=0;}).forEach(function(a){
+      var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+      notifs.push({typ:'plan',text:'Volat dnes: '+(k.klient||'?')+' · '+(a.cas||''),kid:a.klient_id});
+    });
+  }
+  // Pro oz - schůzky čekající na potvrzení a dnes
+  if(CU.role==='oz'){
+    var moje=DB.aktivity.filter(function(a){return a.typ==='sch'&&(a.oz_id===CU.id||a.oz_id===CU.oz_id);});
+    moje.filter(function(a){return!a.potvrzeno&&a.datum>=TODAY;}).forEach(function(a){
+      var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+      notifs.push({typ:'potvrdit',text:'Potvrdit: '+(k.klient||'?')+' · '+fmtD(a.datum),kid:a.klient_id});
+    });
+  }
+  return notifs;
+}
+
+function updNotifBadge(){
+  var notifs=getNotifs();
+  var badge=document.getElementById('notifBadge');
+  if(!badge)return;
+  if(notifs.length){
+    badge.textContent=notifs.length;
+    badge.style.display='flex';
+  } else {
+    badge.style.display='none';
+  }
+}
+
+function toggleNotif(){
+  var panel=document.getElementById('notifPanel');
+  if(!panel)return;
+  if(panel.style.display==='none'||!panel.style.display){
+    var notifs=getNotifs();
+    panel.innerHTML='<div style="padding:10px;border-bottom:1px solid var(--g1);font-weight:700;color:var(--bd);font-size:12px">Upozornění ('+notifs.length+')</div>'+
+      (notifs.length?notifs.map(function(n){
+        return '<div style="padding:8px 10px;border-bottom:1px solid var(--g0);cursor:pointer;font-size:11px" onclick="showTab(\'klienti\');selClient(\''+n.kid+'\');toggleNotif()">'+
+          esc(n.text)+'</div>';
+      }).join(''):'<div style="padding:20px;text-align:center;color:var(--g3);font-size:11px">Žádná nová upozornění</div>');
+    panel.style.display='block';
+  } else {
+    panel.style.display='none';
+  }
+}
+
+document.addEventListener('click',function(e){
+  var panel=document.getElementById('notifPanel');
+  var btn=document.getElementById('notifBtn');
+  if(panel&&btn&&!btn.contains(e.target)&&!panel.contains(e.target))panel.style.display='none';
+});
 
 // ══ DELETE ═══════════════════════════════════════════════════
 function confDel(type,id,extra){
