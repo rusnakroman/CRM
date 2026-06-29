@@ -3182,6 +3182,20 @@ function getNotifs(){
   return notifs;
 }
 
+function updNotifBadge(){
+  if(!CU)return;
+  var notifs=getNotifs();
+  var badge=document.getElementById('notifBadge');
+  if(!badge)return;
+  if(notifs.length){
+    badge.textContent=notifs.length;
+    badge.style.display='flex';
+  } else {
+    badge.style.display='none';
+  }
+}
+
+
 function updNotifs(){
   var btn=document.getElementById('notifBtn');
   var badge=document.getElementById('notifBadge');
