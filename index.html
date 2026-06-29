@@ -1356,7 +1356,8 @@ function selClient(id){selId=id;renderClients();renderKarta(id);}
 function renderKarta(id){
   var c=DB.klienti.find(function(k){return k.id===id;});if(!c)return;
   var kat=getKat(c);var uzav=isUzav(c);
-  var acts=DB.aktivity.filter(function(a){return a.klient_id===id;}).slice().reverse();
+  var acts=DB.aktivity.filter(function(a){return a.klient_id===id&&a.typ!=='log'&&a.typ!=='prerazeni';}).slice().reverse();
+  var histActs=DB.aktivity.filter(function(a){return a.klient_id===id&&(a.typ==='log'||a.typ==='prerazeni');}).sort(function(a,b){return(a.datum+(a.cas||''))<(b.datum+(b.cas||''))?1:-1;});
   var planActs=acts.filter(function(a){return a.typ==='plan'&&!a.stav;});
   var canAdd=CU.role==='op'||CU.role==='mgr'||CU.role==='tl';
   var canOz=CU.role==='oz'||CU.role==='mgr'||CU.role==='tl';
@@ -2956,22 +2957,6 @@ function saveUser(){
 }
 
 // ══ PŘIHLÁSIT JAKO ═══════════════════════════════════════════
-function loginAs(username, heslo){
-  if(!confirm('Přihlásit se jako '+username+'?'))return;
-  showLoader('Přihlašuji jako '+username+'...');
-  sbQ('uzivatele','username=eq.'+encodeURIComponent(username)+'&heslo=eq.'+encodeURIComponent(heslo))
-    .then(function(d){
-      hideLoader();
-      if(!d||!d.length){toast('Uživatel nenalezen','err');return;}
-      var user=d[0];
-      CU={id:user.id,username:user.username,jmeno:user.jmeno,prijmeni:user.prijmeni,
-          dn:(user.jmeno+' '+user.prijmeni).trim()||user.username,
-          role:user.role,oz_id:user.oz_id,email:user.email,limit:user.limit_klientu||0};
-      localStorage.setItem('crm_u',JSON.stringify(CU));
-      loadAll(startApp);
-      toast('Přihlášen jako '+CU.dn,'ok');
-    });
-}
 
 // ══ HESLO ════════════════════════════════════════════════════
 function openPwModal(){document.getElementById('pwNew').value='';document.getElementById('pwConf').value='';document.getElementById('pwModal').classList.add('open');}
