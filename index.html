@@ -827,6 +827,15 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <label>Team Leader (pro OZ)</label>
       <select id="uTl"><option value="">— bez TL —</option></select>
     </div>
+    <div id="uTelegramSec" style="display:none;background:var(--bll);padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid #C5D8F0">
+      <div style="font-size:11px;font-weight:700;color:var(--bd);margin-bottom:6px">📱 Telegram notifikace</div>
+      <div style="font-size:10px;color:var(--g3);margin-bottom:8px">Návod: V Telegramu napiš @BotFather, vytvoř bota (<code>/newbot</code>), zkopíruj TOKEN. Pak napiš svému botovi <code>/start</code> a získej chat_id přes @userinfobot.</div>
+      <div class="fr2">
+        <div class="fr" style="margin-bottom:0"><label>Bot Token</label><input type="text" id="uTgToken" placeholder="123456:ABC-DEF..."></div>
+        <div class="fr" style="margin-bottom:0"><label>Chat ID</label><input type="text" id="uTgChat" placeholder="987654321"></div>
+      </div>
+      <button class="btn btn-g btn-sm" onclick="testTelegram()" style="margin-top:6px">🧪 Otestovat</button>
+    </div>
     <div id="uOzF" style="display:none">
       <div class="fr"><label>Oblast</label><input type="text" id="uObl" placeholder="Praha / Ústí nad Labem"></div>
     </div>
@@ -1111,6 +1120,7 @@ function startApp(){
   initDashMesic();
   buildNav();buildStavFilter();buildFilters();renderClients();
 
+  if(CU.role==='mgr')kontrolaTelegramNotifs();
   if(CU.role==='oz')showTab('kap');
   else if(CU.role==='mgr'||CU.role==='tl')showTab('dash');
   else {showTab('klienti');renderEmptyMain();}
@@ -2014,6 +2024,23 @@ function aktualizujProduktHodnotu(btn){
       return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span style="font-size:11px;width:110px">'+p+'</span><input type="number" id="phod_'+p.replace(/\s/g,'_')+'" value="'+val+'" placeholder="0 Kč" style="flex:1;padding:5px 8px;border:1px solid var(--g1);border-radius:var(--r);font-size:11px"></div>';
     }).join('');
 }
+function notifyObchodMgr(klient_id,produkty,hodnota){
+  var k=DB.klienti.find(function(x){return x.id===klient_id;})||{};
+  var prodList='';
+  if(produkty){
+    try{
+      var p=typeof produkty==='string'?JSON.parse(produkty):produkty;
+      prodList=Object.keys(p).map(function(name){return '• '+name+': '+(p[name]||0).toLocaleString('cs-CZ')+' Kč';}).join('\n');
+    }catch(e){}
+  }
+  var msg='💰 <b>Uzavřen obchod</b>\n\n'+
+    '<b>Klient:</b> '+(k.klient||'?')+'\n'+
+    '<b>OZ:</b> '+(CU.dn||'?')+'\n'+
+    '<b>Hodnota:</b> '+(hodnota||0).toLocaleString('cs-CZ')+' Kč'+
+    (prodList?'\n\n<b>Produkty:</b>\n'+prodList:'');
+  sendTelegramMgr(msg);
+}
+
 function saveSchStav(){
   var d=v('schStavD');
   if(d==='oz_nezajem'&&!v('schPoz').trim()){toast('Zadej důvod nezájmu','err');return;}
@@ -2037,6 +2064,8 @@ function saveSchStav(){
   if(schStavActId){
     sbUpd('aktivity','id=eq.'+schStavActId,upd).then(function(){
       var a=DB.aktivity.find(function(x){return x.id===schStavActId;});if(a)Object.assign(a,upd);
+      // Notifikace manažerovi při obchodu
+      if(d==='oz_obchod')notifyObchodMgr(schStavKid,upd.produkty,upd.hodnota);
       // Pokud OZ dal Nezájem nebo Zrušena → klient se skryje (uzavřít jako oz_nezajem)
       if(d==='oz_nezajem'||d==='oz_zrusena'){
         sbUpd('klienti','id=eq.'+schStavKid,{stav_klienta:d}).then(function(){
@@ -2234,10 +2263,38 @@ function saveTip(){
     hideLoader();
     closeModal('tipModal');
     renderClients();
-    // Email manažerovi
+    // Email + Telegram manažerovi
     sendTipEmailMgr(row);
+    sendTelegramMgr('⭐ <b>Nový tip od operátorky</b>\n\n<b>Operátorka:</b> '+CU.dn+'\n<b>Klient:</b> '+row.klient+'\n<b>Telefon:</b> '+row.telefon+(row.mesto?'\n<b>Město:</b> '+row.mesto:''));
     toast('Tip odeslán manažerovi','ok');
   }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
+}
+
+function sendTelegram(token, chat_id, message){
+  if(!token||!chat_id)return Promise.resolve();
+  var url='https://api.telegram.org/bot'+token+'/sendMessage';
+  return fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({chat_id:chat_id,text:message,parse_mode:'HTML'})
+  }).then(function(r){return r.json();})
+    .then(function(d){if(!d.ok)console.error('Telegram err:',d);return d;})
+    .catch(function(e){console.error('Telegram fetch:',e);});
+}
+
+function sendTelegramMgr(message){
+  // Pošli všem aktivním manažerům s nastaveným Telegramem
+  var mgrs=DB.uzivatele.filter(function(u){return u.role==='mgr'&&u.aktivni&&u.telegram_token&&u.telegram_chat_id;});
+  mgrs.forEach(function(u){sendTelegram(u.telegram_token,u.telegram_chat_id,message);});
+}
+
+function testTelegram(){
+  var token=v('uTgToken').trim(),chat=v('uTgChat').trim();
+  if(!token||!chat){toast('Vyplň token a chat_id','err');return;}
+  sendTelegram(token,chat,'✅ <b>Schůzkovník</b> – test zprávy úspěšný!').then(function(d){
+    if(d&&d.ok)toast('Test úspěšný – zkontroluj Telegram','ok');
+    else toast('Chyba: '+(d&&d.description||'unknown'),'err');
+  });
 }
 
 function sendTipEmailMgr(klient){
@@ -3357,6 +3414,8 @@ function onURole(){
   var r=v('uRole');
   var tlRow=document.getElementById('uTlRow');
   if(tlRow)tlRow.style.display=r==='oz'?'block':'none';
+  var tgSec=document.getElementById('uTelegramSec');
+  if(tgSec)tgSec.style.display=r==='mgr'?'block':'none';
   // Naplnit TL select
   var tlSel=document.getElementById('uTl');
   if(tlSel&&r==='oz'){
@@ -3381,6 +3440,8 @@ function openUserModal(id){
   document.getElementById('uRole').value=u?u.role:'op';
   document.getElementById('uObl').value=oz?oz.oblast:'';
   document.getElementById('uLimit').value=u?u.limit_klientu||0:0;
+  document.getElementById('uTgToken').value=u?(u.telegram_token||''):'';
+  document.getElementById('uTgChat').value=u?(u.telegram_chat_id||''):'';
   onURole();
   document.getElementById('uModal').classList.add('open');
 }
@@ -3445,7 +3506,7 @@ function saveUser(){
   if(!isNew&&heslo.length<4){toast('Heslo min. 4 znaky','err');return;}
   function doSave(oz_id){
     var uid2=editUId||uid();
-    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit,must_change_password:mustChange};
+    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit,must_change_password:mustChange,telegram_token:v('uTgToken').trim(),telegram_chat_id:v('uTgChat').trim()};
     sbIns('uzivatele',u).then(function(){
       var i=DB.uzivatele.findIndex(function(x){return x.id===uid2;});
       if(i>=0)DB.uzivatele[i]=u;else DB.uzivatele.push(u);
@@ -3821,6 +3882,63 @@ function doDelete(){
     renderClients();closeModal('confModal');toast('Smazáno');
     delPending=null;
   }).catch(function(e){toast('Chyba mazání: '+(e.message||'unknown'),'err');});
+}
+
+function kontrolaTelegramNotifs(){
+  // Spustit jen jednou denně
+  var lastRun=localStorage.getItem('tg_last_run');
+  if(lastRun===TODAY)return;
+  
+  // 1. NAROZENINY DNES
+  var dnesNarozeniny=DB.klienti.filter(function(k){
+    if(!k.rodne_cislo)return false;
+    var rc=k.rodne_cislo.replace(/[^0-9]/g,'');
+    if(rc.length<6)return false;
+    var mm=parseInt(rc.slice(2,4));if(mm>50)mm-=50;
+    var dd=parseInt(rc.slice(4,6));
+    var d=new Date(TODAY);
+    return dd===d.getDate()&&mm===(d.getMonth()+1);
+  });
+  if(dnesNarozeniny.length){
+    var msg='🎂 <b>Dnes mají narozeniny:</b>\n\n'+
+      dnesNarozeniny.map(function(k){return '• '+k.klient+(k.telefon?' ('+k.telefon+')':'');}).join('\n');
+    sendTelegramMgr(msg);
+  }
+  
+  // 2. PONDĚLÍ - souhrn minulého týdne
+  var dt=new Date(TODAY);
+  if(dt.getDay()===1){
+    var minTyden=new Date(dt);minTyden.setDate(dt.getDate()-7);
+    var minTydenStr=minTyden.toISOString().slice(0,10);
+    var schT=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.datum>=minTydenStr&&a.datum<TODAY;});
+    var obchT=schT.filter(function(a){return a.stav==='oz_obchod';});
+    var hodT=obchT.reduce(function(s,a){return s+(parseFloat(a.hodnota)||0);},0);
+    var hovT=DB.aktivity.filter(function(a){return a.typ==='tel'&&a.datum>=minTydenStr&&a.datum<TODAY;}).length;
+    sendTelegramMgr('📊 <b>Souhrn minulého týdne</b>\n\n'+
+      '📞 Telefonátů: '+hovT+'\n'+
+      '📅 Schůzek: '+schT.length+'\n'+
+      '💰 Obchodů: '+obchT.length+'\n'+
+      '💵 Hodnota: '+hodT.toLocaleString('cs-CZ')+' Kč');
+  }
+  
+  // 3. PRVNÍ DEN MĚSÍCE - souhrn minulého měsíce
+  if(dt.getDate()===1){
+    var minMes=new Date(dt);minMes.setMonth(dt.getMonth()-1);
+    var minMesStr=minMes.toISOString().slice(0,7);
+    var schM=DB.aktivity.filter(function(a){return a.typ==='sch'&&(a.datum||'').startsWith(minMesStr);});
+    var obchM=schM.filter(function(a){return a.stav==='oz_obchod';});
+    var hodM=obchM.reduce(function(s,a){return s+(parseFloat(a.hodnota)||0);},0);
+    var hovM=DB.aktivity.filter(function(a){return a.typ==='tel'&&(a.datum||'').startsWith(minMesStr);}).length;
+    var konv=hovM?Math.round(schM.length/hovM*100):0;
+    sendTelegramMgr('📈 <b>Souhrn měsíce '+minMesStr+'</b>\n\n'+
+      '📞 Telefonátů: '+hovM+'\n'+
+      '📅 Schůzek: '+schM.length+'\n'+
+      '💰 Obchodů: '+obchM.length+'\n'+
+      '💵 Hodnota: '+hodM.toLocaleString('cs-CZ')+' Kč\n'+
+      '📊 Konverze: '+konv+'%');
+  }
+  
+  localStorage.setItem('tg_last_run',TODAY);
 }
 
 function backToMe(){
