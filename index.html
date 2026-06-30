@@ -2428,14 +2428,37 @@ function renderOpDash(r){
   var klIds=klienti.map(function(k){return k.id;});
   var aktivity=(r.aktivity||[]).filter(function(a){return klIds.indexOf(a.klient_id)>=0;});
   var mesic=v('dashMesic')||TODAY.slice(0,7);
+  var kampane=r.kampane||[];
   
   // KPI tento měsíc
   var hovMes=aktivity.filter(function(a){return a.typ==='tel'&&(a.datum||'').startsWith(mesic);});
   var schMes=aktivity.filter(function(a){return a.typ==='sch'&&(a.datum||'').startsWith(mesic);});
+  var schObchod=schMes.filter(function(a){return a.stav==='oz_obchod';}).length;
   var volanychKl=[...new Set(hovMes.map(function(a){return a.klient_id;}))].length;
   var konv=volanychKl?Math.round(schMes.length/volanychKl*100):0;
   
-  // Dnes a po termínu
+  // Vypočítej odměnu pro tento měsíc
+  var odmena=0;
+  schMes.forEach(function(a){
+    var kl=klienti.find(function(k){return k.id===a.klient_id;});
+    var kamp=null;
+    if(kl){
+      if(kl.kampan_id)kamp=kampane.find(function(k){return k.id===kl.kampan_id;});
+      if(!kamp&&kl.kampan)kamp=kampane.find(function(k){return k.nazev===kl.kampan;});
+    }
+    if(kamp){
+      if(a.typ_schuzky==='telefonicka')odmena+=parseFloat(kamp.sazba_schuzka_tel)||0;
+      else odmena+=parseFloat(kamp.sazba_schuzka)||0;
+      if(a.stav==='oz_obchod')odmena+=parseFloat(kamp.sazba_obchod)||0;
+    }
+  });
+  // KPI bonus
+  var kamp1=klienti.length?kampane.find(function(k){return k.id===(klienti[0].kampan_id||'')||k.nazev===(klienti[0].kampan||'');}):null;
+  var bonus=0;
+  if(kamp1){if(konv>=30)bonus=parseFloat(kamp1.kpi_30)||0;else if(konv>=20)bonus=parseFloat(kamp1.kpi_20)||0;}
+  odmena+=bonus;
+  
+  // Plánovaná volání
   var dnesPlan=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum===TODAY;});
   var poTerm=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum<TODAY;});
   var zitra=new Date(TODAY);zitra.setDate(zitra.getDate()+1);var zStr=zitra.toISOString().slice(0,10);
@@ -2448,29 +2471,53 @@ function renderOpDash(r){
   
   function actRow(a){
     var k=klienti.find(function(x){return x.id===a.klient_id;})||{};
-    return '<div onclick="showTab(\'klienti\');selClient(\''+a.klient_id+'\')" style="padding:8px 10px;background:var(--wh);border:1px solid var(--g1);border-radius:6px;margin-bottom:5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
-      '<div><div style="font-weight:600;font-size:12px">'+esc(k.klient||'?')+'</div>'+
-      '<div style="font-size:10px;color:var(--g3)">'+esc(k.telefon||'')+(a.poznamka?' · '+esc(a.poznamka):'')+'</div></div>'+
-      '<div style="font-size:11px;font-weight:600;color:var(--bd)">'+(a.cas||'—')+'</div>'+
+    return '<div onclick="showTab(\'klienti\');selClient(\''+a.klient_id+'\')" style="padding:10px 12px;background:var(--wh);border-left:3px solid var(--bm);border-radius:6px;margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:all .12s" onmouseover="this.style.background=\'var(--bll)\'" onmouseout="this.style.background=\'var(--wh)\'">'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px;color:var(--bd)">'+esc(k.klient||'?')+'</div>'+
+      '<div style="font-size:10px;color:var(--g3);margin-top:2px">📞 '+esc(k.telefon||'')+(a.poznamka?' · '+esc(a.poznamka):'')+'</div></div>'+
+      (a.cas?'<div style="background:var(--bl);color:var(--bd);padding:4px 8px;border-radius:5px;font-size:11px;font-weight:700">'+a.cas+'</div>':'')+
     '</div>';
   }
   
-  var html='<div class="dwrap">'+
-    '<div class="dkpi">'+
-      '<div class="dkpi-c"><div class="dkpi-l">Aktivní klienti</div><div class="dkpi-v">'+aktivni+'</div></div>'+
-      '<div class="dkpi-c"><div class="dkpi-l">Telefonáty / měsíc</div><div class="dkpi-v">'+hovMes.length+'</div></div>'+
-      '<div class="dkpi-c"><div class="dkpi-l">Schůzky / měsíc</div><div class="dkpi-v">'+schMes.length+'</div></div>'+
-      '<div class="dkpi-c"><div class="dkpi-l">Konverze</div><div class="dkpi-v">'+konv+'%</div></div>'+
-      '<div class="dkpi-c"><div class="dkpi-l">Schůzka domluvena</div><div class="dkpi-v">'+schDomluveno+'</div></div>'+
-    '</div>'+
-    (poTerm.length?'<div class="dc"><h3 style="color:#E65100">⚠ Po termínu ('+poTerm.length+')</h3>'+poTerm.map(actRow).join('')+'</div>':'')+
-    '<div class="dc"><h3>📞 Dnes ('+dnesPlan.length+')</h3>'+
-      (dnesPlan.length?dnesPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
-    '<div class="dc"><h3>🌅 Zítra ('+zitraPlan.length+')</h3>'+
-      (zitraPlan.length?zitraPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
-    '<div class="dc"><h3>📆 Tento týden ('+tydenPlan.length+')</h3>'+
-      (tydenPlan.length?tydenPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
+  var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">'+
+    '<div class="kpi kpi-b"><div class="kpi-v">'+aktivni+'</div><div class="kpi-l">Aktivní klienti</div></div>'+
+    '<div class="kpi kpi-b"><div class="kpi-v">'+hovMes.length+'</div><div class="kpi-l">Telefonáty</div></div>'+
+    '<div class="kpi kpi-g"><div class="kpi-v">'+schMes.length+'</div><div class="kpi-l">Schůzky</div></div>'+
+    '<div class="kpi kpi-p"><div class="kpi-v">'+konv+'%</div><div class="kpi-l">Konverze</div></div>'+
+    '<div class="kpi kpi-g"><div class="kpi-v">'+schObchod+'</div><div class="kpi-l">Obchodů</div></div>'+
+    '<div class="kpi kpi-o"><div class="kpi-v" style="font-size:18px">'+odmena.toLocaleString('cs-CZ')+' Kč</div><div class="kpi-l">Odměna '+mesic+'</div></div>'+
   '</div>';
+  
+  // Dvousloupcová sekce: vlevo akce dnes, vpravo vše ostatní
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  
+  // VLEVO: Dnes
+  html+='<div>';
+  if(poTerm.length){
+    html+='<div class="dc" style="border-left:4px solid #E65100"><h3 style="color:#E65100">⚠ Po termínu ('+poTerm.length+')</h3>'+poTerm.map(actRow).join('')+'</div>';
+  }
+  html+='<div class="dc" style="border-left:4px solid var(--bm)"><h3 style="color:var(--bd)">📞 Dnes ('+dnesPlan.length+')</h3>'+
+    (dnesPlan.length?dnesPlan.map(actRow).join(''):'<div style="text-align:center;padding:20px;color:var(--g3);font-size:12px;background:var(--g0);border-radius:6px">✓ Žádné volání dnes</div>')+'</div>';
+  html+='</div>';
+  
+  // VPRAVO: Zítra + týden
+  html+='<div>';
+  html+='<div class="dc" style="border-left:4px solid var(--gm)"><h3 style="color:var(--gm)">🌅 Zítra ('+zitraPlan.length+')</h3>'+
+    (zitraPlan.length?zitraPlan.map(actRow).join(''):'<div style="text-align:center;padding:14px;color:var(--g3);font-size:11px">Volné</div>')+'</div>';
+  html+='<div class="dc"><h3>📆 Tento týden ('+tydenPlan.length+')</h3>'+
+    (tydenPlan.length?tydenPlan.map(actRow).join(''):'<div style="text-align:center;padding:14px;color:var(--g3);font-size:11px">Volné</div>')+'</div>';
+  html+='</div>';
+  
+  html+='</div>';
+  
+  // Schůzky domluvené - info banner dole
+  if(schDomluveno){
+    html+='<div style="background:linear-gradient(135deg,#E8F5E8 0%,#C8E6C9 100%);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px">'+
+      '<div style="font-size:24px">🎯</div>'+
+      '<div><div style="font-weight:800;color:var(--gm);font-size:14px">'+schDomluveno+' schůzek domluveno</div>'+
+      '<div style="font-size:11px;color:var(--gd)">Klienti čekají na schůzku s OZ</div></div>'+
+    '</div>';
+  }
+  
   document.getElementById('dashBody').innerHTML=html;
 }
 
@@ -2791,7 +2838,11 @@ function exportMesicni(){
     var odmena=0;
     schM.forEach(function(a){
       var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});
-      var kamp=kl&&kl.kampan_id?DB.kampane.find(function(k){return k.id===kl.kampan_id;}):null;
+      var kamp=null;
+      if(kl){
+        if(kl.kampan_id)kamp=DB.kampane.find(function(k){return k.id===kl.kampan_id;});
+        if(!kamp&&kl.kampan)kamp=DB.kampane.find(function(k){return k.nazev===kl.kampan;});
+      }
       if(kamp){
         // Sazba podle typu schůzky
         if(a.typ_schuzky==='telefonicka') odmena+=parseFloat(kamp.sazba_schuzka_tel)||0;
