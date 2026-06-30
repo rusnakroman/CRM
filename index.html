@@ -774,7 +774,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <h3 id="uMT">Nový uživatel</h3>
     <div class="msub">Přihlašovací údaje a role</div>
     <div class="fr"><label>Uživatelské jméno</label><input type="text" id="uUser" placeholder="jananovak"></div>
-    <div class="fr"><label>Heslo</label><input type="text" id="uHeslo" placeholder="min. 4 znaky"></div>
+    <div class="fr" id="uHesloRow" style="display:none"><label>Heslo</label><input type="text" id="uHeslo" placeholder="min. 4 znaky"><div style="font-size:10px;color:var(--g3);margin-top:4px">Pro nového uživatele se vygeneruje automaticky a pošle e-mailem</div></div>
     <div class="fr2">
       <div class="fr" style="margin-bottom:0"><label>Jméno</label><input type="text" id="uJmeno"></div>
       <div class="fr" style="margin-bottom:0"><label>Příjmení</label><input type="text" id="uPrijmeni"></div>
@@ -1037,9 +1037,13 @@ function doLogin(){
       var user=d[0];
       CU={id:user.id,username:user.username,jmeno:user.jmeno,prijmeni:user.prijmeni,
           dn:(user.jmeno+' '+user.prijmeni).trim()||user.username,
-          role:user.role,oz_id:user.oz_id,email:user.email,limit:user.limit_klientu||0};
+          role:user.role,oz_id:user.oz_id,email:user.email,limit:user.limit_klientu||0,
+          must_change_password:user.must_change_password||false};
       localStorage.setItem('crm_u',JSON.stringify(CU));
-      loadAll(startApp);
+      loadAll(function(){
+        startApp();
+        if(CU.must_change_password)setTimeout(function(){openPwModal();toast('Musíte si změnit heslo','err');},500);
+      });
     }).catch(function(e){hideLoader();document.getElementById('lErr').textContent='Chyba: '+e.message;});
 }
 function doLogout(){localStorage.removeItem('crm_u');location.reload();}
@@ -2896,6 +2900,7 @@ function openUserModal(id){
   sett('uMT',u?'Upravit uživatele':'Nový uživatel');
   document.getElementById('uUser').value=u?u.username:'';
   document.getElementById('uHeslo').value=u?u.heslo:'';
+  document.getElementById('uHesloRow').style.display=u?'block':'none';
   document.getElementById('uJmeno').value=u?u.jmeno:'';
   document.getElementById('uPrijmeni').value=u?u.prijmeni:'';
   document.getElementById('uEmail').value=u?u.email:'';
@@ -2910,20 +2915,62 @@ function archivUser(id,aktiv){
     var u=DB.uzivatele.find(function(x){return x.id===id;});if(u)u.aktivni=aktiv;renderUsers();toast(aktiv?'Uživatel obnoven':'Uživatel archivován','ok');
   });
 }
+function genHeslo(){
+  var ch='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  var p='';for(var i=0;i<10;i++)p+=ch.charAt(Math.floor(Math.random()*ch.length));
+  return p;
+}
+
+function sendUserEmails(user,heslo){
+  var EDGE_URL='https://onkrjavnvstztyrfrpxj.supabase.co/functions/v1/send-email';
+  var appUrl=location.origin+location.pathname;
+  // Email 1: Přihlašovací údaje (bez hesla)
+  var html1='<div style="font-family:Arial,sans-serif;max-width:520px">'+
+    '<h2 style="color:#1F3864">Přístup do Schůzkovníku</h2>'+
+    '<p>Dobrý den,</p>'+
+    '<p><strong>'+esc(CU.dn||'Manažer')+'</strong> vám vygeneroval přístupové údaje do Schůzkovníku.</p>'+
+    '<p>Pro přihlášení použijte odkaz: <a href="'+appUrl+'">'+appUrl+'</a></p>'+
+    '<p>Vaše přihlašovací jméno: <strong>'+esc(user.username)+'</strong></p>'+
+    '<p style="background:#FFF3E0;padding:12px;border-radius:6px;color:#E65100">Heslo dorazí v samostatném e-mailu.</p>'+
+    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník · ČSOB Pojišťovna</p></div>';
+  // Email 2: Jen heslo
+  var html2='<div style="font-family:Arial,sans-serif;max-width:520px">'+
+    '<h2 style="color:#1F3864">Vaše jednorázové heslo</h2>'+
+    '<p>Dobrý den,</p>'+
+    '<p>Vaše jednorázové heslo do Schůzkovníku je:</p>'+
+    '<p style="font-size:20px;font-weight:700;letter-spacing:2px;background:#EEF3FB;padding:16px;text-align:center;border-radius:6px;color:#1F3864;font-family:monospace">'+esc(heslo)+'</p>'+
+    '<p style="color:#E65100;font-weight:600">Po prvním přihlášení vás aplikace vyzve k jeho změně.</p>'+
+    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník · ČSOB Pojišťovna</p></div>';
+  
+  fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+    body:JSON.stringify({to:user.email,subject:'Schůzkovník – přístupové údaje',html:html1})}).catch(function(){});
+  setTimeout(function(){
+    fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+      body:JSON.stringify({to:user.email,subject:'Schůzkovník – jednorázové heslo',html:html2})}).catch(function(){});
+  },1500);
+}
+
 function saveUser(){
-  var username=v('uUser').trim(),heslo=v('uHeslo').trim();
+  var username=v('uUser').trim();
   var jmeno=v('uJmeno').trim(),prijmeni=v('uPrijmeni').trim();
   var email=v('uEmail').trim(),role=v('uRole');
   var limit=parseInt(v('uLimit'))||0;
-  if(!username||!heslo){toast('Vyplň uživatelské jméno a heslo','err');return;}
-  if(heslo.length<4){toast('Heslo min. 4 znaky','err');return;}
+  var isNew=!editUId;
+  var heslo=isNew?genHeslo():v('uHeslo').trim();
+  var mustChange=isNew;
+  if(!username){toast('Vyplň uživatelské jméno','err');return;}
+  if(isNew&&!email){toast('Vyplň email - pošle se tam heslo','err');return;}
+  if(!isNew&&!heslo){toast('Vyplň heslo','err');return;}
+  if(!isNew&&heslo.length<4){toast('Heslo min. 4 znaky','err');return;}
   function doSave(oz_id){
     var uid2=editUId||uid();
-    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit};
+    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit,must_change_password:mustChange};
     sbIns('uzivatele',u).then(function(){
       var i=DB.uzivatele.findIndex(function(x){return x.id===uid2;});
       if(i>=0)DB.uzivatele[i]=u;else DB.uzivatele.push(u);
-      closeModal('uModal');renderUsers();toast((jmeno||username)+' uložen','ok');
+      closeModal('uModal');renderUsers();
+      if(isNew&&email)sendUserEmails(u,heslo);
+      toast((jmeno||username)+' uložen'+(isNew?'. Heslo posláno na '+email:''),'ok');
     });
   }
   if(role==='oz'){
@@ -2950,7 +2997,9 @@ function saveUser(){
       }).then(function(r){return r.json();}).then(function(){
         var i2=DB.uzivatele.findIndex(function(x){return x.id===uid2;});
         if(i2>=0)DB.uzivatele[i2]=u;else DB.uzivatele.push(u);
-        closeModal('uModal');renderUsers();toast((jmeno||username)+' uložen','ok');
+        closeModal('uModal');renderUsers();
+        if(isNew&&email)sendUserEmails(u,heslo);
+        toast((jmeno||username)+' uložen'+(isNew?'. Heslo posláno na '+email:''),'ok');
       });
     });
   } else doSave('');
@@ -2964,8 +3013,9 @@ function savePw(){
   var p1=v('pwNew').trim(),p2=v('pwConf').trim();
   if(!p1||p1.length<4){toast('Heslo min. 4 znaky','err');return;}
   if(p1!==p2){toast('Hesla se neshodují','err');return;}
-  sbUpd('uzivatele','id=eq.'+CU.id,{heslo:p1}).then(function(){
-    CU.heslo=p1;localStorage.setItem('crm_u',JSON.stringify(CU));closeModal('pwModal');toast('Heslo změněno','ok');
+  sbUpd('uzivatele','id=eq.'+CU.id,{heslo:p1,must_change_password:false}).then(function(){
+    CU.heslo=p1;CU.must_change_password=false;
+    localStorage.setItem('crm_u',JSON.stringify(CU));closeModal('pwModal');toast('Heslo změněno','ok');
   });
 }
 
@@ -3106,9 +3156,13 @@ function loginAs(username, heslo){
       var user=d[0];
       CU={id:user.id,username:user.username,jmeno:user.jmeno,prijmeni:user.prijmeni,
           dn:(user.jmeno+' '+user.prijmeni).trim()||user.username,
-          role:user.role,oz_id:user.oz_id,email:user.email,limit:user.limit_klientu||0};
+          role:user.role,oz_id:user.oz_id,email:user.email,limit:user.limit_klientu||0,
+          must_change_password:user.must_change_password||false};
       localStorage.setItem('crm_u',JSON.stringify(CU));
-      loadAll(startApp);
+      loadAll(function(){
+        startApp();
+        if(CU.must_change_password)setTimeout(function(){openPwModal();toast('Musíte si změnit heslo','err');},500);
+      });
     }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
 }
 
