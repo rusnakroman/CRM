@@ -1083,7 +1083,7 @@ function startApp(){
 // ══ NAV ══════════════════════════════════════════════════════
 function buildNav(){
   var tabs=[];
-  if(CU.role==='op'){tabs=[{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'}];}
+  if(CU.role==='op'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'}];}
   if(CU.role==='oz'){tabs=[{id:'kap',l:'Kapacity'},{id:'ozS',l:'Schůzky'},{id:'klienti',l:'Klienti'}];}
   if(CU.role==='mgr'||CU.role==='tl'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'},{id:'kamp',l:'Kampaně'},{id:'users',l:'Uživatelé'}];}
   if(CU.role==='tl'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'},{id:'kamp',l:'Kampaně'}];}
