@@ -753,7 +753,16 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div class="fr" style="margin-bottom:0"><label>Město</label><input type="text" id="tipMesto"></div>
       <div class="fr" style="margin-bottom:0"><label>Okres</label><input type="text" id="tipOkres"></div>
     </div>
-    <div class="fr"><label>Poznámka pro manažera</label><textarea id="tipPozn" placeholder="O co má klient zájem, kdy ho oslovit..."></textarea></div>
+    <div class="fr"><label>O co má klient zájem?</label>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--g0);border-radius:var(--r);border:1px solid var(--g1)" id="tipZajem">
+        <button type="button" class="kst" data-p="Náš domov" onclick="this.classList.toggle('on')">🏠 Náš domov</button>
+        <button type="button" class="kst" data-p="Naše auto" onclick="this.classList.toggle('on')">🚗 Naše auto</button>
+        <button type="button" class="kst" data-p="Náš život" onclick="this.classList.toggle('on')">❤️ Náš život</button>
+        <button type="button" class="kst" data-p="Účet" onclick="this.classList.toggle('on')">💳 Účet</button>
+        <button type="button" class="kst" data-p="Penze" onclick="this.classList.toggle('on')">🏖️ Penze</button>
+      </div>
+    </div>
+    <div class="fr"><label>Poznámka pro manažera</label><textarea id="tipPozn" placeholder="Další informace..."></textarea></div>
     <div class="mbtns">
       <button class="btn btn-g" onclick="closeModal('tipModal')">Zrušit</button>
       <button class="btn btn-p" onclick="saveTip()">Odeslat tip</button>
@@ -1259,6 +1268,7 @@ function buildStavFilter(){
   if(CU.role==='mgr'||CU.role==='tl'){
     opts=[
       ['vse','Všichni klienti'],
+      ['tipy','⭐ Tipy od operátorek'],
       ['aktivni','Aktivní klienti'],
       ['dnes','Volat dnes'],
       ['novy','Noví'],
@@ -1393,7 +1403,9 @@ function renderClients(){
     if(fo&&c.okres!==fo)return false;
     var kat=getKat(c),uzav=isUzav(c);
     if(fst==='vse')return true;
+    if(fst==='tipy')return !!c.je_tip;
     if(fst==='vse')return true;
+    if(fst==='tipy')return !!c.je_tip;
     if(fst==='aktivni')return!uzav;
     if(fst==='dnes')return dnesKids.indexOf(c.id)>=0&&!uzav;
     if(fst==='sch_plan'){
@@ -1431,7 +1443,8 @@ function renderClients(){
     var op=c.prirazen_op?DB.uzivatele.find(function(u){return u.id===c.prirazen_op;}):null;
     var opJm=op?((op.jmeno||'').charAt(0)+(op.prijmeni||'').charAt(0)):'';
     var brC='var(--g1)';
-    if(kat==='novy')brC='#4FC3F7';
+    if(c.je_tip)brC='#FFA000';
+    else if(kat==='novy')brC='#4FC3F7';
     else if(kat==='otevreny')brC='#FFB74D';
     else if(kat==='uz_schuzka')brC='#66BB6A';
     else if(kat==='oz_obchod')brC='#2E7D32';
@@ -1441,7 +1454,7 @@ function renderClients(){
       (CU.role==='mgr'?'<input type="checkbox" class="kl-cb" data-id="'+c.id+'" onclick="event.stopPropagation();togKlVyber(this)" style="position:absolute;top:8px;right:6px;width:14px;height:14px;accent-color:var(--rd);cursor:pointer;z-index:2">':'')+
       '<div onclick="selClient(\''+c.id+'\')" style="padding-right:20px">'+
       '<div class="ccrow1">'+
-        '<span class="ccname">'+esc(c.klient)+'</span>'+
+        '<span class="ccname">'+(c.je_tip?'<span style="color:#FFA000;margin-right:3px" title="Tip od operátorky">⭐</span>':'')+esc(c.klient)+'</span>'+
         '<span class="stag '+(STAV_CSS[kat]||'st-new')+'">'+esc(STAV_LABEL[kat]||'Nový')+'</span>'+
       '</div>'+
       '<div class="ccrow2">'+
@@ -1526,13 +1539,14 @@ function renderKarta(id){
     '<div class="kh">'+
       '<div class="kh-top">'+
         '<div>'+
-          '<div class="kname">'+esc(c.klient)+'</div>'+
+          '<div class="kname">'+(c.je_tip?'<span style="color:#FFD54F">⭐ TIP </span>':'')+esc(c.klient)+'</div>'+
           '<div class="kmeta">'+
             '<a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:rgba(255,255,255,.85);text-decoration:none">'+esc(c.telefon)+'</a>'+
             (c.email?'<span>'+esc(c.email)+'</span>':'')+
             (c.mesto||c.okres?'<span>'+(c.mesto||c.okres)+'</span>':'')+
             (c.kampan?'<span>'+esc(c.kampan)+'</span>':'')+
             (op?'<span>Operátorka: '+esc((op.jmeno+' '+op.prijmeni).trim())+'</span>':'')+
+            (c.je_tip&&c.tipovala_op_id?(function(){var tip=DB.uzivatele.find(function(u){return u.id===c.tipovala_op_id;});return tip?'<span style="background:#FFA000;color:#fff;padding:1px 6px;border-radius:8px;font-weight:600">⭐ Tip: '+esc((tip.jmeno+' '+tip.prijmeni).trim()||tip.username)+'</span>':'';})():'')+
           '</div>'+
         '</div>'+
         '<span class="stag '+(STAV_CSS[kat]||'st-new')+'" style="font-size:10px;padding:2px 9px">'+esc(STAV_LABEL[kat]||'Nový')+'</span>'+
@@ -2239,6 +2253,7 @@ function savePrirazeni(){
 // ══ PŘIDAT KLIENTA RUČNĚ ════════════════════════════════════
 function openTipModal(){
   ['tipJmeno','tipTel','tipEmail','tipRC','tipMesto','tipOkres','tipPozn'].forEach(function(id){document.getElementById(id).value='';});
+  document.querySelectorAll('#tipZajem .kst').forEach(function(b){b.classList.remove('on');});
   document.getElementById('tipModal').classList.add('open');
 }
 
@@ -2251,12 +2266,13 @@ function saveTip(){
     var dup=DB.klienti.find(function(k){return k.rodne_cislo&&k.rodne_cislo.replace(/\//g,'').replace(/\s/g,'')===rcNorm;});
     if(dup){toast('Klient s tímto RČ již existuje: '+dup.klient,'err');return;}
   }
+  var zajem=Array.from(document.querySelectorAll('#tipZajem .kst.on')).map(function(b){return b.dataset.p;});
   var row={id:uid(),klient:jmeno,email:v('tipEmail').trim(),telefon:tel,
             okres:v('tipOkres').trim(),mesto:v('tipMesto').trim(),
             kampan:'TIP',kampan_id:'',rodne_cislo:rc,
             stav_klienta:'novy',prirazen_op:'',
-            poznamka_klienta:'⭐ TIP od '+CU.dn+(v('tipPozn')?'\n'+v('tipPozn'):''),
-            je_tip:true,tipovala_op_id:CU.id,datum_pridani:TODAY};
+            poznamka_klienta:'⭐ TIP od '+CU.dn+(zajem.length?'\nZájem: '+zajem.join(', '):'')+(v('tipPozn')?'\n'+v('tipPozn'):''),
+            je_tip:true,tipovala_op_id:CU.id,tip_zajem:JSON.stringify(zajem),datum_pridani:TODAY};
   showLoader('Odesílám tip...');
   sbIns('klienti',row).then(function(){
     DB.klienti.push(row);
@@ -3207,6 +3223,8 @@ function exportMesicni(){
         if(kl.kampan_id)kamp=DB.kampane.find(function(k){return k.id===kl.kampan_id;});
         if(!kamp&&kl.kampan)kamp=DB.kampane.find(function(k){return k.nazev===kl.kampan;});
       }
+      // TIP klienti: odměna JEN za obchod přes produktové kampaně (v provizeTipy níže)
+      if(kl&&kl.je_tip)return;
       if(kamp){
         // Sazba podle typu schůzky
         if(a.typ_schuzky==='telefonicka') odmena+=parseFloat(kamp.sazba_schuzka_tel)||0;
