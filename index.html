@@ -518,7 +518,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <div class="uw">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <h2 style="font-size:15px;font-weight:800;color:var(--bd)">Uživatelé</h2>
-        <button class="btn btn-p btn-sm" onclick="openUserModal()">+ Přidat uživatele</button>
+        <div style="display:flex;gap:5px"><button class="btn btn-p btn-sm" onclick="openUserModal()">+ Přidat uživatele</button><button class="btn btn-d btn-sm" onclick="resetVseDat()" title="Smazat aktivity, klienty, kapacity, historii - nechá uživatele a kampaně">🗑️ Smazat všechna data</button></div>
       </div>
       <div id="uList"></div>
     </div>
@@ -1980,6 +1980,15 @@ function openUzavrModal(kid){
 function onUzavrChange(){
   document.getElementById('uzavrPozSec').style.display=v('uzavrD')==='uz_nezajem'?'block':'none';
 }
+function logChange(kid,text){
+  if(!kid)return;
+  var a={id:uid(),klient_id:kid,typ:'log',datum:TODAY,cas:nowStr(),
+         poznamka:text,stav:'',oz_id:null,slot:'',hodnota:null,potvrzeno:false,
+         vytvoril:CU.dn||CU.username};
+  DB.aktivity.unshift(a);
+  sbIns('aktivity',a).catch(function(){});
+}
+
 function saveUzavreni(){
   var d=v('uzavrD');if(!d){toast('Vyber důvod','err');return;}
   var upd={stav_klienta:d};
@@ -2921,6 +2930,11 @@ function renderDash(r){
   if(CU.role==='op'){renderOpDash(r);return;}
   var mesic=v('dashMesic')||TODAY.slice(0,7);
   var klienti=r.klienti||[],aktivity=r.aktivity||[],users=r.uzivatele||[],kampane=r.kampane||[];
+  // Pokud nejsou žádná data
+  if(!klienti.length&&!aktivity.length){
+    document.getElementById('dashBody').innerHTML='<div class="esb" style="padding:30px;background:var(--wh);border-radius:var(--r2)"><div class="ei">📊</div><p>Žádná data – přidej klienty nebo importuj CSV.</p></div>';
+    return;
+  }
   var allOZdash=users.filter(function(u){return u.role==='oz'&&u.aktivni!==false;}).map(function(u){return {id:u.id,jmeno:(u.jmeno+' '+u.prijmeni).trim()||u.username,oblast:''};});
   (r.oz_seznam||[]).forEach(function(o){if(!allOZdash.find(function(u){return u.id===o.id;}))allOZdash.push(o);});
   var oz=allOZdash;
@@ -3502,6 +3516,28 @@ function openUserModal(id){
   onURole();
   document.getElementById('uModal').classList.add('open');
 }
+function resetVseDat(){
+  if(CU.role!=='mgr'){toast('Jen pro manažera','err');return;}
+  if(!confirm('SMAZAT všechna data?\n\nSmaže:\n- Všechny klienty\n- Všechny aktivity\n- Všechny kapacity OZ\n- Historii změn\n\nNechá:\n- Uživatele\n- Kampaně\n- OZ profily\n\nTato akce je NEVRATNÁ!'))return;
+  if(!confirm('Opravdu? Není možné to vrátit zpět.'))return;
+  showLoader('Mažu všechna data...');
+  Promise.all([
+    sbDel('aktivity','id=neq.x'),
+    sbDel('klienti','id=neq.x'),
+    sbDel('oz_kapacity','oz_id=neq.x')
+  ]).then(function(){
+    DB.klienti=[];
+    DB.aktivity=[];
+    DB.oz_kapacity=[];
+    selId=null;
+    hideLoader();
+    toast('Vše smazáno','ok');
+    renderClients();
+    renderUsers();
+    if(document.getElementById('tabDash').style.display!=='none')loadDash();
+  }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
+}
+
 function archivUser(id,aktiv){
   sbUpd('uzivatele','id=eq.'+id,{aktivni:aktiv}).then(function(){
     var u=DB.uzivatele.find(function(x){return x.id===id;});if(u)u.aktivni=aktiv;renderUsers();toast(aktiv?'Uživatel obnoven':'Uživatel archivován','ok');
