@@ -501,9 +501,11 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           <label style="font-size:11px;color:var(--g3)">Měsíc:</label>
           <select id="dashMesic" onchange="loadDash()" style="padding:5px 9px;border:1.5px solid var(--g1);border-radius:var(--r);font-size:11px;background:var(--wh);outline:none"></select>
+<div id="dashExports" style="display:flex;gap:5px">
           <button class="btn btn-g btn-sm" onclick="exportData('schuzky')">Export schůzek</button>
           <button class="btn btn-g btn-sm" onclick="exportData('klienti')">Export klientů</button>
           <button class="btn btn-g btn-sm" onclick="exportOdmeny()">Export odměny</button>
+</div>
           <button class="btn btn-g btn-sm" onclick="loadDash()">Obnovit</button>
         </div>
       </div>
@@ -573,6 +575,18 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
           <div class="fr2">
             <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="zpD"></div>
             <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="zpC"></div>
+          </div>
+        </div>
+        <div id="dovDalsiSec" style="display:none;background:var(--gl);border-radius:var(--r);padding:8px;border:1px solid #A5D6A7;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--gm)">
+            <input type="checkbox" id="dovDalsi" onchange="document.getElementById('dovDalsiPlan').style.display=this.checked?'block':'none'">
+            Klient chce volat jindy
+          </label>
+          <div id="dovDalsiPlan" style="display:none;margin-top:6px">
+            <div class="fr2">
+              <div class="fr" style="margin-bottom:0"><label>Datum</label><input type="date" id="dovDalsiD"></div>
+              <div class="fr" style="margin-bottom:0"><label>Čas</label><input type="time" id="dovDalsiC"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -898,6 +912,7 @@ var prehoditActId = null, prehoditKid = null;
 var preraditKid = null, editUId = null, editKampId = null;
 var pendDel = null, hovorResult = '';
 var TODAY = new Date().toISOString().slice(0,10);
+var originalCU = null;
 var kalStart = monOf(new Date());
 var HOURS = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
 
@@ -1046,11 +1061,12 @@ function doLogin(){
       });
     }).catch(function(e){hideLoader();document.getElementById('lErr').textContent='Chyba: '+e.message;});
 }
-function doLogout(){localStorage.removeItem('crm_u');location.reload();}
+function doLogout(){localStorage.removeItem('crm_u');localStorage.removeItem('crm_orig');location.reload();}
 window.onload=function(){
   document.getElementById('ls').style.display='flex';
-  // CSV file listener - přidán globálně při načtení stránky
-
+  // Načíst originalCU pokud existuje
+  var orig=localStorage.getItem('crm_orig');
+  if(orig){try{originalCU=JSON.parse(orig);}catch(e){}}
   var s=localStorage.getItem('crm_u');
   if(s){CU=JSON.parse(s);loadAll(startApp);}
   reqNotifPerm();
@@ -1675,9 +1691,15 @@ function setHovor(val){
   document.getElementById('btnDov').className='hv-btn'+(val==='dovolano'?' yes':'');
   document.getElementById('btnNdov').className='hv-btn'+(val==='nedovolano'?' no':'');
   document.getElementById('ndovSec').style.display=val==='nedovolano'?'block':'none';
+  var dDS=document.getElementById('dovDalsiSec');
+  if(dDS)dDS.style.display=val==='dovolano'?'block':'none';
   if(val==='nedovolano'){
     var zitra=new Date();zitra.setDate(zitra.getDate()+1);
     if(!v('zpD'))document.getElementById('zpD').value=zitra.toISOString().slice(0,10);
+  }
+  if(val==='dovolano'){
+    var zitra2=new Date();zitra2.setDate(zitra2.getDate()+1);
+    if(!v('dovDalsiD'))document.getElementById('dovDalsiD').value=zitra2.toISOString().slice(0,10);
   }
 }
 
@@ -1750,7 +1772,7 @@ function saveAct(){
       if(typ==='sch')novyStav='uz_schuzka';
       if(novyStav){kk.stav_klienta=novyStav;proms.push(sbUpd('klienti','id=eq.'+actKid,{stav_klienta:novyStav}));}
     }
-    // Zpětné volání
+    // Zpětné volání (nedovolano)
     var zpD=v('zpD');
     if(typ==='tel'&&hovorResult==='nedovolano'&&zpD){
       var pid=uid();
@@ -1758,6 +1780,18 @@ function saveAct(){
                 poznamka:'Zpětné volání – pokus č.'+(pocet+2),stav:'',
                 oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn};
       DB.aktivity.push(plan);proms.push(sbIns('aktivity',plan));
+    }
+    // Klient chce volat jindy (dovolano)
+    var dovD=document.getElementById('dovDalsi');
+    if(typ==='tel'&&hovorResult==='dovolano'&&dovD&&dovD.checked){
+      var ddD=v('dovDalsiD'),ddC=v('dovDalsiC');
+      if(ddD){
+        var pid2=uid();
+        var plan2={id:pid2,klient_id:actKid,typ:'plan',datum:ddD,cas:ddC,
+                   poznamka:'Klient chce volat jindy'+(pozn?' – '+pozn:''),stav:'',
+                   oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn};
+        DB.aktivity.push(plan2);proms.push(sbIns('aktivity',plan2));
+      }
     }
     Promise.all(proms).then(function(){
       hideLoader();
@@ -2434,6 +2468,8 @@ function renderOpDash(r){
   var hovMes=aktivity.filter(function(a){return a.typ==='tel'&&(a.datum||'').startsWith(mesic);});
   var schMes=aktivity.filter(function(a){return a.typ==='sch'&&(a.datum||'').startsWith(mesic);});
   var schObchod=schMes.filter(function(a){return a.stav==='oz_obchod';}).length;
+  var schTel=schMes.filter(function(a){return a.typ_schuzky==='telefonicka';}).length;
+  var schOsobni=schMes.filter(function(a){return a.typ_schuzky!=='telefonicka';}).length;
   var volanychKl=[...new Set(hovMes.map(function(a){return a.klient_id;}))].length;
   var konv=volanychKl?Math.round(schMes.length/volanychKl*100):0;
   
@@ -2481,7 +2517,9 @@ function renderOpDash(r){
   var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">'+
     '<div class="kpi kpi-b"><div class="kpi-v">'+aktivni+'</div><div class="kpi-l">Aktivní klienti</div></div>'+
     '<div class="kpi kpi-b"><div class="kpi-v">'+hovMes.length+'</div><div class="kpi-l">Telefonáty</div></div>'+
-    '<div class="kpi kpi-g"><div class="kpi-v">'+schMes.length+'</div><div class="kpi-l">Schůzky</div></div>'+
+    '<div class="kpi kpi-g"><div class="kpi-v">'+schMes.length+'</div><div class="kpi-l">Schůzky celkem</div></div>'+
+    '<div class="kpi kpi-b"><div class="kpi-v">'+schOsobni+'</div><div class="kpi-l">👤 Osobní</div></div>'+
+    '<div class="kpi kpi-b"><div class="kpi-v">'+schTel+'</div><div class="kpi-l">📞 Telefonické</div></div>'+
     '<div class="kpi kpi-p"><div class="kpi-v">'+konv+'%</div><div class="kpi-l">Konverze</div></div>'+
     '<div class="kpi kpi-g"><div class="kpi-v">'+schObchod+'</div><div class="kpi-l">Obchodů</div></div>'+
     '<div class="kpi kpi-o"><div class="kpi-v" style="font-size:18px">'+odmena.toLocaleString('cs-CZ')+' Kč</div><div class="kpi-l">Odměna '+mesic+'</div></div>'+
@@ -3299,11 +3337,12 @@ function smazatVybrane(){
 }
 
 // ══ ZPĚT NA PŮVODNÍ PŘIHLÁŠENÍ ══════════════════════════════
-var originalCU=null;
-
 function loginAs(username, heslo){
   if(!confirm('Přihlásit se jako '+username+'?'))return;
-  if(!originalCU)originalCU=JSON.parse(JSON.stringify(CU));
+  if(!originalCU){
+    originalCU=JSON.parse(JSON.stringify(CU));
+    localStorage.setItem('crm_orig',JSON.stringify(originalCU));
+  }
   showLoader('Přihlašuji...');
   sbQ('uzivatele','username=eq.'+encodeURIComponent(username)+'&heslo=eq.'+encodeURIComponent(heslo))
     .then(function(d){
@@ -3481,6 +3520,7 @@ function backToMe(){
   if(!originalCU){toast('Nemáš původní přihlášení','err');return;}
   CU=JSON.parse(JSON.stringify(originalCU));
   originalCU=null;
+  localStorage.removeItem('crm_orig');
   localStorage.setItem('crm_u',JSON.stringify(CU));
   loadAll(startApp);
   toast('Zpět jako '+CU.dn,'ok');
