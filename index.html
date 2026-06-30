@@ -2411,6 +2411,8 @@ function initDashMesic(){
 }
 
 function loadDash(){
+  var ex=document.getElementById('dashExports');
+  if(ex)ex.style.display=(CU.role==='mgr')?'flex':'none';
   showLoader('Načítám dashboard...');
   var tbls=['klienti','aktivity','oz_seznam','uzivatele','kampane'];
   var r={},done=0;
@@ -2906,13 +2908,29 @@ function saveKamp(){
            sazba_schuzka_tel:parseFloat(v('kampSazbaTel'))||0,
            sazba_obchod:parseFloat(v('kampDoplatek'))||0,sazba_typ:'fix',
            kpi_20:parseFloat(v('kampKpi20'))||0,kpi_30:parseFloat(v('kampKpi30'))||0,aktivni:true};
+  console.log('saveKamp:',isEdit?'UPDATE':'INSERT',row);
+  
+  // Aktualizovat lokálně OKAMŽITĚ
+  var i=DB.kampane.findIndex(function(x){return x.id===row.id;});
+  if(i>=0)DB.kampane[i]=row;else DB.kampane.push(row);
+  closeModal('kampModal');renderKamp();buildFilters();
+  
+  // Pak asynchronně do DB
   var p=isEdit?sbUpd('kampane','id=eq.'+row.id,row):sbIns('kampane',row);
-  p.then(function(){
-    var i=DB.kampane.findIndex(function(x){return x.id===row.id;});
-    if(i>=0)DB.kampane[i]=row;else DB.kampane.push(row);
+  p.then(function(res){
+    console.log('saveKamp response:',res);
+    if(res&&res.code){
+      toast('Chyba DB: '+(res.message||res.code),'err');
+      // Vrátit zpět
+      loadAll(function(){renderKamp();buildFilters();});
+      return;
+    }
     editKampId=null;
-    closeModal('kampModal');renderKamp();buildFilters();toast('Kampaň uložena','ok');
-  }).catch(function(e){toast('Chyba: '+e.message,'err');});
+    toast('Kampaň uložena','ok');
+  }).catch(function(e){
+    console.error('saveKamp error:',e);
+    toast('Síťová chyba: '+(e.message||'unknown'),'err');
+  });
 }
 
 // ══ UŽIVATELÉ ════════════════════════════════════════════════
@@ -3338,6 +3356,49 @@ function logZmena(klient_id, akce, detail){
   var h={id:uid(),klient_id:klient_id,akce:akce,detail:detail||'',
          uzivatel:CU.dn||CU.username,datum:new Date().toISOString()};
   sbIns('historie_zmen',h).catch(function(){});
+}
+
+
+var delPending=null;
+
+function confDel(type, id, extra){
+  delPending={type:type,id:id,extra:extra||null};
+  var t={act:'Smazat tuto aktivitu?',user:'Smazat tohoto uživatele?',kl:'Smazat tohoto klienta a všechny jeho aktivity?',kamp:'Smazat tuto kampaň?'};
+  var ctxt=document.getElementById('confText')||document.getElementById('confTxt');
+  if(ctxt)ctxt.textContent=t[type]||'Smazat?';
+  document.getElementById('confModal').classList.add('open');
+}
+
+function doDelete(){
+  var p=delPending;if(!p)return;
+  var tbl={act:'aktivity',user:'uzivatele',kl:'klienti',kamp:'kampane'};
+  sbDel(tbl[p.type],'id=eq.'+p.id).then(function(){
+    if(p.type==='act'){
+      var a=DB.aktivity.find(function(x){return x.id===p.id;});
+      if(a&&a.typ==='sch'&&a.oz_id&&a.slot&&a.datum){
+        var kap=DB.oz_kapacity.find(function(k){return k.oz_id===a.oz_id&&k.datum===a.datum&&k.slot===a.slot;});
+        if(kap){kap.obsazeno_klient_id='';sbUpd('oz_kapacity','oz_id=eq.'+a.oz_id+'&datum=eq.'+a.datum+'&slot=eq.'+encodeURIComponent(a.slot),{obsazeno_klient_id:''});}
+      }
+      DB.aktivity=DB.aktivity.filter(function(x){return x.id!==p.id;});
+      if(p.extra)renderKarta(p.extra);
+    }
+    else if(p.type==='user'){
+      DB.uzivatele=DB.uzivatele.filter(function(u){return u.id!==p.id;});
+      renderUsers();
+    }
+    else if(p.type==='kl'){
+      DB.aktivity.filter(function(a){return a.klient_id===p.id&&a.typ==='sch'&&a.oz_id&&a.slot&&a.datum;}).forEach(function(a){
+        var kap=DB.oz_kapacity.find(function(k){return k.oz_id===a.oz_id&&k.datum===a.datum&&k.slot===a.slot;});
+        if(kap){kap.obsazeno_klient_id='';sbUpd('oz_kapacity','oz_id=eq.'+a.oz_id+'&datum=eq.'+a.datum+'&slot=eq.'+encodeURIComponent(a.slot),{obsazeno_klient_id:''});}
+      });
+      DB.klienti=DB.klienti.filter(function(c){return c.id!==p.id;});
+      DB.aktivity=DB.aktivity.filter(function(a){return a.klient_id!==p.id;});
+      selId=null;document.getElementById('mainC').innerHTML='';
+    }
+    else if(p.type==='kamp'){DB.kampane=DB.kampane.filter(function(k){return k.id!==p.id;});renderKamp();buildFilters();}
+    renderClients();closeModal('confModal');toast('Smazáno');
+    delPending=null;
+  }).catch(function(e){toast('Chyba mazání: '+(e.message||'unknown'),'err');});
 }
 
 function backToMe(){
