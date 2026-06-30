@@ -348,6 +348,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   <input type="file" id="fileInput" accept=".csv" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="var f=this.files[0];if(f){var r=new FileReader();r.onload=function(ev){parseCSV(ev.target.result);};r.readAsText(f,'UTF-8');this.value='';}">
 </div>
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
+      <button class="btn btn-ok btn-sm" id="tipKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openTipModal()">⭐ Tipovat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
       <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
       <div class="sbrow">
@@ -355,23 +356,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
         <select id="fO" onchange="renderClients()"><option value="">Všechny okresy</option></select>
       </div>
       <div class="sbfull">
-        <select id="fStav" onchange="renderClients()">
-          <option value="aktivni">Aktivní klienti</option>
-          <option value="dnes">Volat dnes</option>
-          <option value="novy">Noví</option>
-          <option value="otevreny">Otevření</option>
-          <option value="uz_vse">Uzavření – vše</option>
-          <option value="uz_nedovolano">Uzavření – nedovoláno</option>
-          <option value="uz_neznam">Uzavření – neznámý kontakt</option>
-          <option value="uz_nezajem">Uzavření – nemá zájem</option>
-          <option value="uz_schuzka">Uzavření – domluvena schůzka</option>
-          <option value="ma_schuzku">Má naplánovanou schůzku</option>
-          <option value="neprirazeny">Nepřiřazení (bez operátorky)</option>
-          <option value="oz_obchod">OZ – uzavřen obchod</option>
-          <option value="oz_odlozeno">OZ – odloženo výročí</option>
-          <option value="oz_nezajem">OZ – nezájem</option>
-          <option value="oz_zrusena">OZ – zrušena</option>
-        </select>
+        <select id="fStav" onchange="renderClients()"></select>
       </div>
     </div>
     <div class="sbstat">
@@ -646,6 +631,17 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <label>Hodnota obchodu (Kč)</label>
       <input type="number" id="schHodnota" placeholder="0">
     </div>
+    <div id="schStavProdukty" class="fr" style="display:none">
+      <label>Sjednané produkty</label>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--g0);border-radius:var(--r);border:1px solid var(--g1)" id="produktSloty">
+        <button type="button" class="kst" data-p="Náš domov" onclick="this.classList.toggle('on');aktualizujProduktHodnotu(this)">🏠 Náš domov</button>
+        <button type="button" class="kst" data-p="Naše auto" onclick="this.classList.toggle('on');aktualizujProduktHodnotu(this)">🚗 Naše auto</button>
+        <button type="button" class="kst" data-p="Náš život" onclick="this.classList.toggle('on');aktualizujProduktHodnotu(this)">❤️ Náš život</button>
+        <button type="button" class="kst" data-p="Účet" onclick="this.classList.toggle('on');aktualizujProduktHodnotu(this)">💳 Účet</button>
+        <button type="button" class="kst" data-p="Penze" onclick="this.classList.toggle('on');aktualizujProduktHodnotu(this)">🏖️ Penze</button>
+      </div>
+      <div id="produktInputs" style="display:none;margin-top:8px"></div>
+    </div>
     <div id="schStavPoz" class="fr" style="display:none">
       <label>Důvod nezájmu (povinné)</label>
       <textarea id="schPoz" placeholder="Proč nezájem..."></textarea>
@@ -740,6 +736,31 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   </div>
 </div>
 
+<!-- Tipovat klienta -->
+<div class="overlay" id="tipModal">
+  <div class="modal" style="width:480px">
+    <h3>⭐ Tipovat klienta</h3>
+    <div class="msub">Klient půjde na manažera. Provizi dostaneš za sjednané produkty.</div>
+    <div class="fr2">
+      <div class="fr" style="margin-bottom:0"><label>Jméno a příjmení *</label><input type="text" id="tipJmeno" placeholder="Jan Novák"></div>
+      <div class="fr" style="margin-bottom:0"><label>Telefon *</label><input type="tel" id="tipTel" placeholder="777123456"></div>
+    </div>
+    <div class="fr2" style="margin-top:10px">
+      <div class="fr" style="margin-bottom:0"><label>E-mail</label><input type="email" id="tipEmail"></div>
+      <div class="fr" style="margin-bottom:0"><label>Rodné číslo</label><input type="text" id="tipRC" placeholder="800101/1234"></div>
+    </div>
+    <div class="fr2" style="margin-top:10px">
+      <div class="fr" style="margin-bottom:0"><label>Město</label><input type="text" id="tipMesto"></div>
+      <div class="fr" style="margin-bottom:0"><label>Okres</label><input type="text" id="tipOkres"></div>
+    </div>
+    <div class="fr"><label>Poznámka pro manažera</label><textarea id="tipPozn" placeholder="O co má klient zájem, kdy ho oslovit..."></textarea></div>
+    <div class="mbtns">
+      <button class="btn btn-g" onclick="closeModal('tipModal')">Zrušit</button>
+      <button class="btn btn-p" onclick="saveTip()">Odeslat tip</button>
+    </div>
+  </div>
+</div>
+
 <!-- Přiřadit klienty -->
 <div class="overlay" id="priraditModal">
   <div class="modal" style="width:500px">
@@ -788,7 +809,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
     <h3 id="uMT">Nový uživatel</h3>
     <div class="msub">Přihlašovací údaje a role</div>
     <div class="fr"><label>Uživatelské jméno</label><input type="text" id="uUser" placeholder="jananovak"></div>
-    <div class="fr" id="uHesloRow" style="display:none"><label>Heslo</label><input type="text" id="uHeslo" placeholder="min. 4 znaky"><div style="font-size:10px;color:var(--g3);margin-top:4px">Pro nového uživatele se vygeneruje automaticky a pošle e-mailem</div></div>
+    <div class="fr" id="uHesloRow" style="display:none"><label>Heslo</label><input type="password" id="uHeslo" placeholder="min. 4 znaky"><div style="font-size:10px;color:var(--g3);margin-top:4px">Pro nového uživatele se vygeneruje automaticky a pošle e-mailem</div></div>
     <div class="fr2">
       <div class="fr" style="margin-bottom:0"><label>Jméno</label><input type="text" id="uJmeno"></div>
       <div class="fr" style="margin-bottom:0"><label>Příjmení</label><input type="text" id="uPrijmeni"></div>
@@ -1018,12 +1039,12 @@ function loadAll(cb){
         if(CU&&CU.role==='op')
           kl=kl.filter(function(k){return String(k.prirazen_op||'')===String(CU.id);});
         else if(CU&&CU.role==='oz'){
-          // OZ vidí klienty kde je přiřazen jako oz_id (oz_id = user.id)
-          var myOzId=CU.id; // Pro OZ je oz_id rovno user.id
+          // OZ vidí JEN klienty kteří mají schůzku přiřazenou k tomuto OZ
+          var freshU=(res.uzivatele||[]).find(function(u){return u.id===CU.id;})||{};
+          var myOzIds=[CU.id,CU.oz_id,freshU.oz_id].filter(Boolean).map(String);
           var myIds=(res.aktivity||[])
-            .filter(function(a){return a.typ==='sch'&&(String(a.oz_id||'')===String(myOzId)||String(a.oz_id||'')===String(CU.oz_id||''));})
+            .filter(function(a){return a.typ==='sch'&&myOzIds.indexOf(String(a.oz_id||''))>=0;})
             .map(function(a){return a.klient_id;});
-          // Unikátní klient IDs
           myIds=[...new Set(myIds)];
           kl=kl.filter(function(k){return myIds.indexOf(k.id)>=0;});
         }
@@ -1083,11 +1104,12 @@ function startApp(){
   var rb=document.getElementById('hdrR');rb.textContent=RL[CU.role]||CU.role;rb.className='rb '+(RC[CU.role]||'');
   document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
+  document.getElementById('tipKlBtn').style.display=CU.role==='op'?'block':'none';
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
   if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
   initDashMesic();
-  buildNav();buildFilters();renderClients();
+  buildNav();buildStavFilter();buildFilters();renderClients();
 
   if(CU.role==='oz')showTab('kap');
   else if(CU.role==='mgr'||CU.role==='tl')showTab('dash');
@@ -1221,11 +1243,105 @@ function parseCSV(text){
 }
 
 // ══ SIDEBAR FILTERS ══════════════════════════════════════════
+function buildStavFilter(){
+  var fs=document.getElementById('fStav');if(!fs)return;
+  var opts=[];
+  if(CU.role==='mgr'||CU.role==='tl'){
+    opts=[
+      ['vse','Všichni klienti'],
+      ['aktivni','Aktivní klienti'],
+      ['dnes','Volat dnes'],
+      ['novy','Noví'],
+      ['otevreny','Otevření'],
+      ['uz_vse','Uzavření – vše'],
+      ['uz_nedovolano','Uzavření – nedovoláno'],
+      ['uz_neznam','Uzavření – neznámý kontakt'],
+      ['uz_nezajem','Uzavření – nemá zájem'],
+      ['uz_schuzka','Uzavření – domluvena schůzka'],
+      ['ma_schuzku','Má naplánovanou schůzku'],
+      ['neprirazeny','Nepřiřazení (bez operátorky)'],
+      ['oz_obchod','OZ – uzavřen obchod'],
+      ['oz_odlozeno','OZ – odloženo výročí'],
+      ['oz_nezajem','OZ – nezájem'],
+      ['oz_zrusena','OZ – zrušena']
+    ];
+  } else if(CU.role==='oz'){
+    opts=[
+      ['vse','Všichni klienti'],
+      ['sch_plan','Schůzka – plánovaná'],
+      ['sch_potvr','Schůzka – potvrzená'],
+      ['oz_obchod','Uzavřen obchod'],
+      ['oz_odlozeno','Odloženo – výročí'],
+      ['oz_nezajem','Nezájem'],
+      ['oz_zrusena','Zrušena']
+    ];
+  } else if(CU.role==='op'){
+    opts=[
+      ['vse','Všichni klienti'],
+      ['uz_vse','Uzavření – vše'],
+      ['uz_nedovolano','Uzavření – nedovoláno'],
+      ['uz_neznam','Uzavření – neznámý kontakt'],
+      ['uz_nezajem','Uzavření – nemá zájem'],
+      ['uz_schuzka','Uzavření – domluvena schůzka'],
+      ['oz_obchod','OZ – uzavřen obchod'],
+      ['oz_odlozeno','OZ – odloženo výročí'],
+      ['oz_nezajem','OZ – nezájem'],
+      ['oz_zrusena','OZ – zrušena']
+    ];
+  }
+  fs.innerHTML=opts.map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('');
+}
+
 function buildFilters(){
   var ks=[...new Set(DB.klienti.map(function(c){return c.kampan;}).filter(Boolean))].sort();
   var os=[...new Set(DB.klienti.map(function(c){return c.okres;}).filter(Boolean))].sort();
   document.getElementById('fK').innerHTML='<option value="">Všechny kampaně</option>'+ks.map(function(k){return '<option>'+esc(k)+'</option>';}).join('');
   document.getElementById('fO').innerHTML='<option value="">Všechny okresy</option>'+os.map(function(o){return '<option>'+esc(o)+'</option>';}).join('');
+  // Filtry stavů podle role
+  var fStavEl=document.getElementById('fStav');
+  if(fStavEl){
+    var opts='';
+    if(CU.role==='oz'){
+      // OZ: všichni klienti + stavy schůzek
+      opts='<option value="vse">Všichni klienti</option>'+
+        '<option value="uz_schuzka">Schůzka domluvena</option>'+
+        '<option value="oz_obchod">Uzavřen obchod</option>'+
+        '<option value="oz_odlozeno">Odloženo – výročí</option>'+
+        '<option value="oz_nezajem">Nezájem</option>'+
+        '<option value="oz_zrusena">Zrušená schůzka</option>';
+    } else if(CU.role==='op'){
+      // Op: všichni klienti + jen vybrané filtry  
+      opts='<option value="vse">Všichni klienti</option>'+
+        '<option value="otevreny">Otevření</option>'+
+        '<option value="uz_vse">Uzavření – vše</option>'+
+        '<option value="uz_nedovolano">Uzavření – nedovoláno</option>'+
+        '<option value="uz_neznam">Uzavření – neznámý kontakt</option>'+
+        '<option value="uz_nezajem">Uzavření – nemá zájem</option>'+
+        '<option value="uz_schuzka">Uzavření – domluvena schůzka</option>'+
+        '<option value="oz_obchod">OZ – uzavřen obchod</option>'+
+        '<option value="oz_odlozeno">OZ – odloženo výročí</option>'+
+        '<option value="oz_nezajem">OZ – nezájem</option>'+
+        '<option value="oz_zrusena">OZ – zrušena</option>';
+    } else {
+      // Manažer/TL: všechno
+      opts='<option value="aktivni">Aktivní klienti</option>'+
+        '<option value="dnes">Volat dnes</option>'+
+        '<option value="novy">Noví</option>'+
+        '<option value="otevreny">Otevření</option>'+
+        '<option value="uz_vse">Uzavření – vše</option>'+
+        '<option value="uz_nedovolano">Uzavření – nedovoláno</option>'+
+        '<option value="uz_neznam">Uzavření – neznámý kontakt</option>'+
+        '<option value="uz_nezajem">Uzavření – nemá zájem</option>'+
+        '<option value="uz_schuzka">Uzavření – domluvena schůzka</option>'+
+        '<option value="ma_schuzku">Má naplánovanou schůzku</option>'+
+        '<option value="neprirazeny">Nepřiřazení (bez operátorky)</option>'+
+        '<option value="oz_obchod">OZ – uzavřen obchod</option>'+
+        '<option value="oz_odlozeno">OZ – odloženo výročí</option>'+
+        '<option value="oz_nezajem">OZ – nezájem</option>'+
+        '<option value="oz_zrusena">OZ – zrušena</option>';
+    }
+    fStavEl.innerHTML=opts;
+  }
 }
 
 function getDnesKids(){
@@ -1254,7 +1370,7 @@ setInterval(function(){if(typeof updNotifs==='function'&&CU)updNotifs();},60000)
 
 function renderClients(){
   var q=(v('srch')||'').toLowerCase();
-  var fk=v('fK'),fo=v('fO'),fst=v('fStav')||'aktivni';
+  var fk=v('fK'),fo=v('fO'),fst=v('fStav')||(CU.role==='oz'||CU.role==='op'?'vse':'aktivni');
   var dnesKids=getDnesKids();
   var list=document.getElementById('cList');
   if(!DB.klienti.length){
@@ -1266,8 +1382,16 @@ function renderClients(){
     if(fk&&c.kampan!==fk)return false;
     if(fo&&c.okres!==fo)return false;
     var kat=getKat(c),uzav=isUzav(c);
+    if(fst==='vse')return true;
+    if(fst==='vse')return true;
     if(fst==='aktivni')return!uzav;
     if(fst==='dnes')return dnesKids.indexOf(c.id)>=0&&!uzav;
+    if(fst==='sch_plan'){
+      return DB.aktivity.some(function(a){return a.klient_id===c.id&&a.typ==='sch'&&a.stav==='plan'&&!a.potvrzeno;});
+    }
+    if(fst==='sch_potvr'){
+      return DB.aktivity.some(function(a){return a.klient_id===c.id&&a.typ==='sch'&&a.potvrzeno;});
+    }
     if(fst==='novy')return kat==='novy';
     if(fst==='otevreny')return kat==='otevreny';
     if(fst==='uz_vse')return uzav;
@@ -1532,7 +1656,9 @@ function splnitPlan(aid,kid){
 function potvrditSch(aid,kid){
   sbUpd('aktivity','id=eq.'+aid,{potvrzeno:true}).then(function(){
     var a=DB.aktivity.find(function(x){return x.id===aid;});if(a)a.potvrzeno=true;
-    renderKarta(kid);toast('Schůzka potvrzena','ok');
+    renderKarta(kid);
+    if(document.getElementById('tabOzS').style.display!=='none')renderOzSchuzky();
+    toast('Schůzka potvrzena','ok');
   });
 }
 
@@ -1839,6 +1965,32 @@ function openSchStavModal(kid,aid){
   document.getElementById('schHodnota').value='';
   document.getElementById('schVyroci').value='';
   document.getElementById('schPoz').value='';
+  // Reset produkty
+  document.querySelectorAll('#produktSloty .kst').forEach(function(b){b.classList.remove('on');});
+  document.getElementById('produktInputs').innerHTML='';
+  document.getElementById('produktInputs').style.display='none';
+  // Načíst předchozí produkty pokud existují
+  if(aid){
+    var a=DB.aktivity.find(function(x){return x.id===aid;});
+    if(a&&a.produkty){
+      try{
+        var p=typeof a.produkty==='string'?JSON.parse(a.produkty):a.produkty;
+        Object.keys(p).forEach(function(name){
+          var btn=document.querySelector('#produktSloty .kst[data-p="'+name+'"]');
+          if(btn)btn.classList.add('on');
+        });
+        if(Object.keys(p).length){
+          aktualizujProduktHodnotu();
+          setTimeout(function(){
+            Object.keys(p).forEach(function(name){
+              var inp=document.getElementById('phod_'+name.replace(/\s/g,'_'));
+              if(inp)inp.value=p[name];
+            });
+          },50);
+        }
+      }catch(e){}
+    }
+  }
   onSchStavChange();
   document.getElementById('schStavModal').classList.add('open');
 }
@@ -1846,6 +1998,21 @@ function onSchStavChange(){
   var d=v('schStavD');
   document.getElementById('schStavHodnota').style.display=d==='oz_obchod'?'block':'none';
   document.getElementById('schStavPoz').style.display=d==='oz_nezajem'?'block':'none';
+  document.getElementById('schStavProdukty').style.display=d==='oz_obchod'?'block':'none';
+}
+
+function aktualizujProduktHodnotu(btn){
+  var inputs=document.getElementById('produktInputs');
+  var vybrane=Array.from(document.querySelectorAll('#produktSloty .kst.on'));
+  if(!vybrane.length){inputs.style.display='none';inputs.innerHTML='';return;}
+  inputs.style.display='block';
+  inputs.innerHTML='<div style="font-size:10px;color:var(--g3);margin-bottom:5px;font-weight:600">Hodnoty jednotlivých produktů:</div>'+
+    vybrane.map(function(b){
+      var p=b.dataset.p;
+      var existing=document.getElementById('phod_'+p.replace(/\s/g,'_'));
+      var val=existing?existing.value:'';
+      return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span style="font-size:11px;width:110px">'+p+'</span><input type="number" id="phod_'+p.replace(/\s/g,'_')+'" value="'+val+'" placeholder="0 Kč" style="flex:1;padding:5px 8px;border:1px solid var(--g1);border-radius:var(--r);font-size:11px"></div>';
+    }).join('');
 }
 function saveSchStav(){
   var d=v('schStavD');
@@ -1853,6 +2020,20 @@ function saveSchStav(){
   var upd={stav:d};
   if(d==='oz_obchod'&&v('schHodnota'))upd.hodnota=parseFloat(v('schHodnota'));
   if(v('schPoz'))upd.poznamka=(v('schPoz'));
+  // Sjednané produkty
+  if(d==='oz_obchod'){
+    var produkty={};
+    document.querySelectorAll('#produktSloty .kst.on').forEach(function(b){
+      var p=b.dataset.p;
+      var inp=document.getElementById('phod_'+p.replace(/\s/g,'_'));
+      produkty[p]=inp?parseFloat(inp.value)||0:0;
+    });
+    upd.produkty=JSON.stringify(produkty);
+    // Suma do hodnoty
+    if(Object.keys(produkty).length){
+      upd.hodnota=Object.values(produkty).reduce(function(s,x){return s+x;},0);
+    }
+  }
   if(schStavActId){
     sbUpd('aktivity','id=eq.'+schStavActId,upd).then(function(){
       var a=DB.aktivity.find(function(x){return x.id===schStavActId;});if(a)Object.assign(a,upd);
@@ -2027,6 +2208,61 @@ function savePrirazeni(){
 }
 
 // ══ PŘIDAT KLIENTA RUČNĚ ════════════════════════════════════
+function openTipModal(){
+  ['tipJmeno','tipTel','tipEmail','tipRC','tipMesto','tipOkres','tipPozn'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('tipModal').classList.add('open');
+}
+
+function saveTip(){
+  var jmeno=v('tipJmeno').trim();if(!jmeno){toast('Vyplň jméno','err');return;}
+  var tel=v('tipTel').trim().replace(/\s/g,'');if(!tel){toast('Vyplň telefon','err');return;}
+  var rc=v('tipRC').trim();
+  if(rc){
+    var rcNorm=rc.replace(/\//g,'').replace(/\s/g,'');
+    var dup=DB.klienti.find(function(k){return k.rodne_cislo&&k.rodne_cislo.replace(/\//g,'').replace(/\s/g,'')===rcNorm;});
+    if(dup){toast('Klient s tímto RČ již existuje: '+dup.klient,'err');return;}
+  }
+  var row={id:uid(),klient:jmeno,email:v('tipEmail').trim(),telefon:tel,
+            okres:v('tipOkres').trim(),mesto:v('tipMesto').trim(),
+            kampan:'TIP',kampan_id:'',rodne_cislo:rc,
+            stav_klienta:'novy',prirazen_op:'',
+            poznamka_klienta:'⭐ TIP od '+CU.dn+(v('tipPozn')?'\n'+v('tipPozn'):''),
+            je_tip:true,tipovala_op_id:CU.id,datum_pridani:TODAY};
+  showLoader('Odesílám tip...');
+  sbIns('klienti',row).then(function(){
+    DB.klienti.push(row);
+    hideLoader();
+    closeModal('tipModal');
+    renderClients();
+    // Email manažerovi
+    sendTipEmailMgr(row);
+    toast('Tip odeslán manažerovi','ok');
+  }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
+}
+
+function sendTipEmailMgr(klient){
+  var mgrs=DB.uzivatele.filter(function(u){return u.role==='mgr'&&u.aktivni&&u.email;});
+  if(!mgrs.length)return;
+  var emails=mgrs.map(function(u){return u.email;});
+  var html='<div style="font-family:Arial,sans-serif;max-width:520px">'+
+    '<h2 style="color:#1F3864">⭐ Nový tip od operátorky</h2>'+
+    '<p><strong>'+esc(CU.dn)+'</strong> tipla nového klienta.</p>'+
+    '<table style="width:100%;border-collapse:collapse">'+
+    '<tr><td style="padding:7px 12px;color:#666">Klient</td><td style="padding:7px 12px;font-weight:700">'+esc(klient.klient)+'</td></tr>'+
+    '<tr><td style="padding:7px 12px;color:#666">Telefon</td><td style="padding:7px 12px">'+esc(klient.telefon)+'</td></tr>'+
+    (klient.email?'<tr><td style="padding:7px 12px;color:#666">E-mail</td><td style="padding:7px 12px">'+esc(klient.email)+'</td></tr>':'')+
+    (klient.mesto?'<tr><td style="padding:7px 12px;color:#666">Město / Okres</td><td style="padding:7px 12px">'+esc(klient.mesto+' / '+(klient.okres||''))+'</td></tr>':'')+
+    '<tr><td style="padding:7px 12px;color:#666;vertical-align:top">Poznámka</td><td style="padding:7px 12px">'+esc(klient.poznamka_klienta||'').replace(/\n/g,'<br>')+'</td></tr>'+
+    '</table>'+
+    '<p style="background:#FFF3E0;padding:10px;border-radius:6px;margin-top:14px;font-size:12px">Předej tip konkrétnímu OZ v aplikaci Schůzkovník.</p>'+
+    '<p style="color:#aaa;font-size:11px;margin-top:12px">Schůzkovník</p></div>';
+  var EDGE_URL='https://onkrjavnvstztyrfrpxj.supabase.co/functions/v1/send-email';
+  emails.forEach(function(email){
+    fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
+      body:JSON.stringify({to:email,subject:'⭐ Nový tip: '+klient.klient,html:html})}).catch(function(){});
+  });
+}
+
 function openAddKlientModal(){
   ['klJmeno','klTel','klEmail','klRC','klMesto','klOkres'].forEach(function(id){document.getElementById(id).value='';});
   var kampSel=document.getElementById('klKamp');
@@ -2305,15 +2541,40 @@ function smazHromadne(){
 // ══ KALENDÁŘ OZ ══════════════════════════════════════════════
 function kalWeek(dir){kalStart.setDate(kalStart.getDate()+dir*7);renderKal();}
 function kalDnes(){kalStart=monOf(new Date());renderKal();}
+// České státní svátky
+function getCzSvatky(rok){
+  function easter(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),n=Math.floor((h+l-7*m+114)/31),p=(h+l-7*m+114)%31;return new Date(y,n-1,p+1);}
+  var e=easter(rok);
+  var pondelek=new Date(e);pondelek.setDate(e.getDate()+1);
+  var ptk=new Date(e);ptk.setDate(e.getDate()-2);
+  function fmt(d){return d.toISOString().slice(0,10);}
+  return {
+    [rok+'-01-01']:'Nový rok',
+    [fmt(ptk)]:'Velký pátek',
+    [fmt(pondelek)]:'Velikonoční pondělí',
+    [rok+'-05-01']:'Svátek práce',
+    [rok+'-05-08']:'Den vítězství',
+    [rok+'-07-05']:'Cyril a Metoděj',
+    [rok+'-07-06']:'Jan Hus',
+    [rok+'-09-28']:'Sv. Václav',
+    [rok+'-10-28']:'Den vzniku ČSR',
+    [rok+'-11-17']:'Boj za svobodu',
+    [rok+'-12-24']:'Štědrý den',
+    [rok+'-12-25']:'1. svátek vánoční',
+    [rok+'-12-26']:'2. svátek vánoční'
+  };
+}
+
 function renderKal(){
   var days=['Po','Út','St','Čt','Pá','So','Ne'];
   var dates=days.map(function(_,i){var d=new Date(kalStart);d.setDate(d.getDate()+i);return d;});
+  var svatky=Object.assign({},getCzSvatky(dates[0].getFullYear()),getCzSvatky(dates[6].getFullYear()));
   sett('kalLabel',fmtD(dates[0].toISOString().slice(0,10))+' – '+fmtD(dates[6].toISOString().slice(0,10)));
   var allOZ=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni;}).map(function(u){return {id:u.id,jmeno:(u.jmeno+' '+u.prijmeni).trim()||u.username,oblast:''};});
   DB.oz_seznam.forEach(function(o){if(!allOZ.find(function(u){return u.id===o.id;}))allOZ.push(o);});
   if(!allOZ.length){document.getElementById('kalBody').innerHTML='<div class="esb"><p>Žádní obchodníci.</p></div>';return;}
   var html='<table class="kal-tbl"><thead><tr><th>OZ / Čas</th>'+
-    dates.map(function(d,i){var ds=d.toISOString().slice(0,10);var isT=ds===TODAY;return '<th style="'+(isT?'background:var(--bm)':'')+'">'+days[i]+'<br><span style="font-weight:400;font-size:9px">'+fmtD(ds)+'</span></th>';}).join('')+
+    dates.map(function(d,i){var ds=d.toISOString().slice(0,10);var isT=ds===TODAY;var sv=svatky[ds];var isWE=d.getDay()===0||d.getDay()===6;var bg=isT?'background:var(--bm)':sv?'background:#FFCDD2;color:#C62828':isWE?'background:#FFE0B2;color:#E65100':'';return '<th style="'+bg+'" title="'+(sv||'')+'">'+days[i]+'<br><span style="font-weight:400;font-size:9px">'+fmtD(ds)+'</span>'+(sv?'<br><span style="font-size:8px;font-weight:400">🎉 '+esc(sv)+'</span>':'')+'</th>';}).join('')+
   '</tr></thead><tbody>';
   allOZ.forEach(function(oz,ozi){
     html+='<tr><td colspan="'+(dates.length+1)+'" class="kal-oz-hdr">'+esc(oz.jmeno)+(oz.oblast?' – '+esc(oz.oblast):'')+'</td></tr>';
@@ -2323,8 +2584,14 @@ function renderKal(){
       dates.forEach(function(d){
         var ds=d.toISOString().slice(0,10);var isT=ds===TODAY;
         var kap=DB.oz_kapacity.find(function(k){return k.oz_id===oz.id&&k.datum===ds&&k.slot===hour;});
+        // Zjisti zda má OZ v tento den nějaký slot
+        var maSloty=DB.oz_kapacity.some(function(k){return k.oz_id===oz.id&&k.datum===ds;});
+        var isSv=!!svatky[ds];
         var cls=isT?' kal-today-col':'';
-        if(!kap){html+='<td class="kal-empty'+cls+'">–</td>';}
+        if(!kap){
+          var bg=isSv?'background:#FFEBEE':!maSloty?'background:#FFEBEE':'';
+          html+='<td class="kal-empty'+cls+'" style="'+bg+'">'+(isSv&&hour===HOURS[0]?'🎉':'–')+'</td>';
+        }
         else if(kap.obsazeno_klient_id){
           var kl=DB.klienti.find(function(c){return c.id===kap.obsazeno_klient_id;})||{};
           html+='<td class="kal-busy'+cls+'" onclick="goKlient(\''+kl.id+'\')" title="'+esc(kl.klient)+'">'+
@@ -2447,6 +2714,10 @@ function initDashMesic(){
 function loadDash(){
   var ex=document.getElementById('dashExports');
   if(ex)ex.style.display=(CU.role==='mgr')?'flex':'none';
+  // Skryj i tlačítka jednotlivě (pro případ jiné struktury)
+  document.querySelectorAll('[onclick*="exportData"],[onclick*="exportOdmeny"],[onclick*="exportPDF"],[onclick*="exportMesicni"]').forEach(function(b){
+    if(CU.role!=='mgr')b.style.display='none';
+  });
   showLoader('Načítám dashboard...');
   var tbls=['klienti','aktivity','oz_seznam','uzivatele','kampane'];
   var r={},done=0;
@@ -2471,7 +2742,8 @@ function renderOpDash(r){
   var schTel=schMes.filter(function(a){return a.typ_schuzky==='telefonicka';}).length;
   var schOsobni=schMes.filter(function(a){return a.typ_schuzky!=='telefonicka';}).length;
   var volanychKl=[...new Set(hovMes.map(function(a){return a.klient_id;}))].length;
-  var konv=volanychKl?Math.round(schMes.length/volanychKl*100):0;
+  var schUnikatni=[...new Set(schMes.map(function(a){return a.klient_id;}))].length;
+  var konv=volanychKl?Math.round(schUnikatni/volanychKl*100):0;
   
   // Vypočítej odměnu pro tento měsíc
   var odmena=0;
@@ -2547,14 +2819,7 @@ function renderOpDash(r){
   
   html+='</div>';
   
-  // Schůzky domluvené - info banner dole
-  if(schDomluveno){
-    html+='<div style="background:linear-gradient(135deg,#E8F5E8 0%,#C8E6C9 100%);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px">'+
-      '<div style="font-size:24px">🎯</div>'+
-      '<div><div style="font-weight:800;color:var(--gm);font-size:14px">'+schDomluveno+' schůzek domluveno</div>'+
-      '<div style="font-size:11px;color:var(--gd)">Klienti čekají na schůzku s OZ</div></div>'+
-    '</div>';
-  }
+  // (Banner odstraněn)
   
   document.getElementById('dashBody').innerHTML=html;
 }
@@ -2748,7 +3013,8 @@ function renderDash(r){
       var volaniMes=aktivity.filter(function(a){return a.typ==='tel'&&kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
       var volanychKl=[...new Set(volaniMes.map(function(a){return a.klient_id;}))].length;
       var schMesOp=aktivity.filter(function(a){return a.typ==='sch'&&kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
-      var pct=volanychKl?Math.round(schMesOp.length/volanychKl*100):0;
+      var schMesOpUni=[...new Set(schMesOp.map(function(a){return a.klient_id;}))].length;
+      var pct=volanychKl?Math.round(schMesOpUni/volanychKl*100):0;
       var cl=pct>=30?'var(--gm)':pct>=20?'var(--od)':'var(--rd)';
       // Průměrná doba od přiřazení k schůzce
       var doby=mk.filter(function(k){return k.prirazen_op_datum;}).map(function(k){
@@ -2802,8 +3068,10 @@ function renderDash(r){
     if(!mesRep[m])mesRep[m]={};
     var opUser=users.find(function(u){return(u.jmeno+' '+u.prijmeni).trim()===a.vytvoril||u.username===a.vytvoril;})||{};
     var opK=(opUser.jmeno+' '+opUser.prijmeni).trim()||opUser.username||a.vytvoril||'?';
-    if(!mesRep[m][opK])mesRep[m][opK]={s:0,u:0,volanych:0};
+    if(!mesRep[m][opK])mesRep[m][opK]={s:0,u:0,volanych:0,_klSch:{}};
     mesRep[m][opK].s++;
+    mesRep[m][opK]._klSch[a.klient_id]=true;
+    mesRep[m][opK].uni=Object.keys(mesRep[m][opK]._klSch).length;
     if(a.stav==='oz_obchod')mesRep[m][opK].u++;
   });
   // Volaní klienti per měsíc per operátorka
@@ -2824,7 +3092,7 @@ function renderDash(r){
     (mesK.length?'<table class="tbl"><thead><tr><th>Měsíc</th><th>Operátorka</th><th class="c">Vol. klientů</th><th class="c">Schůzky</th><th class="c">Konv.%</th></tr></thead><tbody>'+
     mesK.map(function(m){
       return Object.entries(mesRep[m]).map(function(e,i){
-        var pct=e[1].volanych?Math.round(e[1].s/e[1].volanych*100):0;
+        var pct=e[1].volanych?Math.round((e[1].uni||e[1].s)/e[1].volanych*100):0;
         var cl=pct>=30?'var(--gm)':pct>=20?'var(--od)':'var(--rd)';
         return '<tr>'+(i===0?'<td rowspan="'+Object.keys(mesRep[m]).length+'" style="font-weight:700;vertical-align:top">'+m+'</td>':'')+'<td>'+esc(e[0])+'</td><td class="c">'+e[1].volanych+'</td><td class="c"><strong>'+e[1].s+'</strong></td><td class="c"><strong style="color:'+cl+'">'+pct+'%</strong></td></tr>';
       }).join('');
@@ -2863,7 +3131,7 @@ function exportPDF(){
 
 function exportMesicni(){
   var mesic=v('dashMesic')||TODAY.slice(0,7);
-  var rows=[['Měsíc','Operátorka','Volaných klientů','Schůzek','Konv.%','Odměna (Kč)']];
+  var rows=[['Měsíc','Operátorka','Volaných klientů','Schůzek','Konv.%','Odměna (Kč)','Provize z tipů (Kč)','Celkem (Kč)']];
   var schuzky=DB.aktivity.filter(function(a){return a.typ==='sch';});
   var hovory=DB.aktivity.filter(function(a){return a.typ==='tel';});
   DB.uzivatele.filter(function(u){return u.role==='op';}).forEach(function(u){
@@ -2872,7 +3140,8 @@ function exportMesicni(){
     var hovM=hovory.filter(function(a){return kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
     var volanych=[...new Set(hovM.map(function(a){return a.klient_id;}))].length;
     var schM=schuzky.filter(function(a){return kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
-    var pct=volanych?Math.round(schM.length/volanych*100):0;
+    var schUni=[...new Set(schM.map(function(a){return a.klient_id;}))].length;
+    var pct=volanych?Math.round(schUni/volanych*100):0;
     var odmena=0;
     schM.forEach(function(a){
       var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});
@@ -2894,8 +3163,46 @@ function exportMesicni(){
     // KPI bonus
     var kamp1=mk.length?DB.kampane.find(function(k){return k.id===(mk[0].kampan_id||'');}):null;
     if(kamp1){if(pct>=30)odmena+=parseFloat(kamp1.kpi_30)||0;else if(pct>=20)odmena+=parseFloat(kamp1.kpi_20)||0;}
+    // Provize z tipů - klienti které tato operátorka tipla a mají sjednané produkty v tomto měsíci
+    var tipKli=DB.klienti.filter(function(k){return k.je_tip&&String(k.tipovala_op_id||'')===String(u.id);});
+    var tipKliIds=tipKli.map(function(k){return k.id;});
+    var provizeTipy=0;
+    var tipDetail=[];
+    DB.aktivity.filter(function(a){return a.typ==='sch'&&a.stav==='oz_obchod'&&(a.datum||'').startsWith(mesic)&&tipKliIds.indexOf(a.klient_id)>=0&&a.produkty;}).forEach(function(a){
+      try{
+        var p=typeof a.produkty==='string'?JSON.parse(a.produkty):a.produkty;
+        var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+        Object.keys(p).forEach(function(prodName){
+          var hodnotaProd=p[prodName];
+          // Najdi kampaň podle názvu produktu
+          var kampProd=DB.kampane.find(function(kp){return kp.nazev===prodName;});
+          var provize=0;
+          if(kampProd){
+            if(kampProd.sazba_typ==='procento')provize=hodnotaProd*(parseFloat(kampProd.sazba_obchod)||0)/100;
+            else provize=parseFloat(kampProd.sazba_obchod)||0;
+          }
+          provizeTipy+=provize;
+          tipDetail.push({klient:k.klient,produkt:prodName,hodnota:hodnotaProd,provize:provize});
+        });
+      }catch(e){}
+    });
+    var celkem=odmena+provizeTipy;
     var dn=(u.jmeno+' '+u.prijmeni).trim()||u.username;
-    rows.push([mesic,dn,volanych,schM.length,pct+'%',odmena.toFixed(0)]);
+    rows.push([mesic,dn,volanych,schM.length,pct+'%',odmena.toFixed(0),provizeTipy.toFixed(0),celkem.toFixed(0)]);
+    // Detail tipů
+    if(tipDetail.length){
+      tipDetail.forEach(function(t){
+        rows.push(['','  ⭐ TIP: '+t.klient,'','','',t.produkt,t.hodnota.toLocaleString('cs-CZ')+' Kč',t.provize.toFixed(0)+' Kč']);
+      });
+    }
+    // Detail schůzek
+    var schDetail=DB.klienti.filter(function(k){return k.je_tip&&String(k.tipovala_op_id||'')===String(u.id);}).filter(function(k){
+      return DB.aktivity.some(function(a){return a.klient_id===k.id&&a.typ==='sch';});
+    });
+    schDetail.forEach(function(k){
+      var schA=DB.aktivity.filter(function(a){return a.klient_id===k.id&&a.typ==='sch';})[0];
+      if(schA)rows.push(['','  📅 Domluvená schůzka','',k.klient,fmtD(schA.datum),'','','']);
+    });
   });
   dlCSV(rows.slice(1),rows[0],'odmeny_'+mesic+'.csv');
 }
