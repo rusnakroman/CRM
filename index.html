@@ -1097,6 +1097,11 @@ function doLogin(){
       loadAll(function(){
         startApp();
         if(CU.must_change_password)setTimeout(function(){openPwModal(true);toast('Musíte si změnit heslo','warn');},500);
+        // Telegram - login notifikace pro manažera
+        if(CU.role!=='mgr'){
+          var roleEmoji={op:'📞',oz:'👤',tl:'⭐',mgr:'🎯'};
+          sendTelegramMgr((roleEmoji[CU.role]||'')+' <b>Přihlášení:</b> '+CU.dn+' ('+(RL[CU.role]||CU.role)+') – '+new Date().toLocaleString('cs-CZ'));
+        }
       });
     }).catch(function(e){hideLoader();document.getElementById('lErr').textContent='Chyba: '+e.message;});
 }
@@ -1539,7 +1544,7 @@ function renderKarta(id){
     '<div class="kh">'+
       '<div class="kh-top">'+
         '<div>'+
-          '<div class="kname">'+(c.je_tip?'<span style="color:#FFD54F">⭐ TIP </span>':'')+esc(c.klient)+'</div>'+
+          '<div class="kname">'+esc(c.klient)+'</div>'+
           '<div class="kmeta">'+
             '<a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:rgba(255,255,255,.85);text-decoration:none">'+esc(c.telefon)+'</a>'+
             (c.email?'<span>'+esc(c.email)+'</span>':'')+
@@ -1931,6 +1936,10 @@ function saveAct(){
                 oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn};
       DB.aktivity.push(plan);proms.push(sbIns('aktivity',plan));
     }
+    // 3× nedovoláno notifikace
+    if(typ==='tel'&&hovorResult==='nedovolano'&&pocet+1>=3){
+      sendTelegramMgr('⚠️ <b>3× nedovoláno</b>\n\n<b>Klient:</b> '+(c.klient||'?')+'\n<b>Telefon:</b> '+(c.telefon||'?')+'\n<b>Operátorka:</b> '+CU.dn);
+    }
     // Klient chce volat jindy (dovolano)
     var dovD=document.getElementById('dovDalsi');
     if(typ==='tel'&&hovorResult==='dovolano'&&dovD&&dovD.checked){
@@ -1945,7 +1954,12 @@ function saveAct(){
     }
     Promise.all(proms).then(function(){
       hideLoader();
-      if(typ==='sch')sendEmail(a,c);
+      if(typ==='sch'){
+      sendEmail(a,c);
+      var ozUser=a.oz_id?DB.uzivatele.find(function(u){return u.id===a.oz_id;}):null;
+      var ozJm=ozUser?((ozUser.jmeno+' '+ozUser.prijmeni).trim()||ozUser.username):'(čeká přiřazení)';
+      sendTelegramMgr('📅 <b>Nová schůzka</b>\n\n<b>Klient:</b> '+(c.klient||'?')+'\n<b>Datum:</b> '+fmtD(a.datum)+(a.slot?' '+a.slot:'')+'\n<b>OZ:</b> '+ozJm+'\n<b>Typ:</b> '+(a.typ_schuzky==='telefonicka'?'📞 Telefonická':'👤 Osobní')+'\n<b>Operátorka:</b> '+CU.dn);
+    }
       closeModal('actModal');renderKarta(actKid);renderClients();
       var zpMsg=zpD?' – naplánováno volání':'';
       toast('Uloženo'+(typ==='sch'?' – email odeslán':'')+zpMsg,'ok');
@@ -2078,8 +2092,12 @@ function saveSchStav(){
   if(schStavActId){
     sbUpd('aktivity','id=eq.'+schStavActId,upd).then(function(){
       var a=DB.aktivity.find(function(x){return x.id===schStavActId;});if(a)Object.assign(a,upd);
-      // Notifikace manažerovi při obchodu
+      // Notifikace manažerovi
       if(d==='oz_obchod')notifyObchodMgr(schStavKid,upd.produkty,upd.hodnota);
+      if(d==='oz_zrusena'){
+        var kZrus=DB.klienti.find(function(x){return x.id===schStavKid;})||{};
+        sendTelegramMgr('❌ <b>Schůzka zrušena</b>\n\n<b>Klient:</b> '+(kZrus.klient||'?')+'\n<b>OZ:</b> '+(CU.dn||'?')+(v('schPoz')?'\n<b>Důvod:</b> '+v('schPoz'):''));
+      }
       // Pokud OZ dal Nezájem nebo Zrušena → klient se skryje (uzavřít jako oz_nezajem)
       if(d==='oz_nezajem'||d==='oz_zrusena'){
         sbUpd('klienti','id=eq.'+schStavKid,{stav_klienta:d}).then(function(){
@@ -3204,83 +3222,104 @@ function exportPDF(){
 
 function exportMesicni(){
   var mesic=v('dashMesic')||TODAY.slice(0,7);
-  var rows=[['Měsíc','Operátorka','Volaných klientů','Schůzek','Konv.%','Odměna (Kč)','Provize z tipů (Kč)','Celkem (Kč)']];
-  var schuzky=DB.aktivity.filter(function(a){return a.typ==='sch';});
-  var hovory=DB.aktivity.filter(function(a){return a.typ==='tel';});
+  var produktNames=['Náš domov','Naše auto','Náš život','Účet','Penze'];
+  
+  // Hlavička: souhrn + tabulka per operátorka
+  var headerSouhrn=[['MĚSÍČNÍ ODMĚNY OPERÁTOREK - '+mesic],[],['Souhrn:'],['Provize za schůzky','Provize z tipů','Doplatek za obchody','CELKEM']];
+  var headerTabulka=['Operátorka','Klient','Odměna schůzka','Doplatek obchod','Tip Náš domov','Tip Naše auto','Tip Náš život','Tip Účet','Tip Penze','Celkem'];
+  
+  var sumSchuzky=0,sumTipy=0,sumObchod=0;
+  var allRows=[];
+  
   DB.uzivatele.filter(function(u){return u.role==='op';}).forEach(function(u){
     var mk=DB.klienti.filter(function(k){return k.prirazen_op===u.id;});
     var kidSet=mk.map(function(k){return k.id;});
-    var hovM=hovory.filter(function(a){return kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
-    var volanych=[...new Set(hovM.map(function(a){return a.klient_id;}))].length;
-    var schM=schuzky.filter(function(a){return kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
-    var schUni=[...new Set(schM.map(function(a){return a.klient_id;}))].length;
-    var pct=volanych?Math.round(schUni/volanych*100):0;
-    var odmena=0;
+    var schM=DB.aktivity.filter(function(a){return a.typ==='sch'&&kidSet.indexOf(a.klient_id)>=0&&(a.datum||'').startsWith(mesic);});
+    
+    var dn=(u.jmeno+' '+u.prijmeni).trim()||u.username;
+    var opSchuzky=0,opObchod=0;
+    var perKlient={}; // klient_id -> {klient,schuzka,obchod,tipy:{}}
+    
+    // BĚŽNÍ KLIENTI (ne tipy) - odměna za schůzky + obchody
     schM.forEach(function(a){
       var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});
+      if(!kl||kl.je_tip)return;
       var kamp=null;
-      if(kl){
-        if(kl.kampan_id)kamp=DB.kampane.find(function(k){return k.id===kl.kampan_id;});
-        if(!kamp&&kl.kampan)kamp=DB.kampane.find(function(k){return k.nazev===kl.kampan;});
-      }
-      // TIP klienti: odměna JEN za obchod přes produktové kampaně (v provizeTipy níže)
-      if(kl&&kl.je_tip)return;
-      if(kamp){
-        // Sazba podle typu schůzky
-        if(a.typ_schuzky==='telefonicka') odmena+=parseFloat(kamp.sazba_schuzka_tel)||0;
-        else odmena+=parseFloat(kamp.sazba_schuzka)||0;
-        if(a.stav==='oz_obchod'){
-          if(kamp.sazba_typ==='procento')odmena+=((parseFloat(a.hodnota)||0)*(parseFloat(kamp.sazba_obchod)||0)/100);
-          else odmena+=parseFloat(kamp.sazba_obchod)||0;
-        }
+      if(kl.kampan_id)kamp=DB.kampane.find(function(k){return k.id===kl.kampan_id;});
+      if(!kamp&&kl.kampan)kamp=DB.kampane.find(function(k){return k.nazev===kl.kampan;});
+      if(!kamp)return;
+      if(!perKlient[kl.id])perKlient[kl.id]={klient:kl.klient,schuzka:0,obchod:0,tipy:{}};
+      var sazba=(a.typ_schuzky==='telefonicka'?parseFloat(kamp.sazba_schuzka_tel)||0:parseFloat(kamp.sazba_schuzka)||0);
+      perKlient[kl.id].schuzka+=sazba;
+      opSchuzky+=sazba;
+      if(a.stav==='oz_obchod'){
+        var doplatek=kamp.sazba_typ==='procento'?(parseFloat(a.hodnota)||0)*(parseFloat(kamp.sazba_obchod)||0)/100:parseFloat(kamp.sazba_obchod)||0;
+        perKlient[kl.id].obchod+=doplatek;
+        opObchod+=doplatek;
       }
     });
-    // KPI bonus
-    var kamp1=mk.length?DB.kampane.find(function(k){return k.id===(mk[0].kampan_id||'');}):null;
-    if(kamp1){if(pct>=30)odmena+=parseFloat(kamp1.kpi_30)||0;else if(pct>=20)odmena+=parseFloat(kamp1.kpi_20)||0;}
-    // Provize z tipů - klienti které tato operátorka tipla a mají sjednané produkty v tomto měsíci
+    
+    // TIP KLIENTI - provize jen z produktů
     var tipKli=DB.klienti.filter(function(k){return k.je_tip&&String(k.tipovala_op_id||'')===String(u.id);});
-    var tipKliIds=tipKli.map(function(k){return k.id;});
-    var provizeTipy=0;
-    var tipDetail=[];
-    DB.aktivity.filter(function(a){return a.typ==='sch'&&a.stav==='oz_obchod'&&(a.datum||'').startsWith(mesic)&&tipKliIds.indexOf(a.klient_id)>=0&&a.produkty;}).forEach(function(a){
+    var opTipy={};produktNames.forEach(function(p){opTipy[p]=0;});
+    var opTipyTotal=0;
+    
+    DB.aktivity.filter(function(a){return a.typ==='sch'&&a.stav==='oz_obchod'&&(a.datum||'').startsWith(mesic)&&a.produkty&&tipKli.some(function(k){return k.id===a.klient_id;});}).forEach(function(a){
       try{
         var p=typeof a.produkty==='string'?JSON.parse(a.produkty):a.produkty;
-        var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+        var kl=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+        if(!perKlient[kl.id])perKlient[kl.id]={klient:kl.klient+' ⭐TIP',schuzka:0,obchod:0,tipy:{}};
         Object.keys(p).forEach(function(prodName){
           var hodnotaProd=p[prodName];
-          // Najdi kampaň podle názvu produktu
           var kampProd=DB.kampane.find(function(kp){return kp.nazev===prodName;});
           var provize=0;
           if(kampProd){
             if(kampProd.sazba_typ==='procento')provize=hodnotaProd*(parseFloat(kampProd.sazba_obchod)||0)/100;
             else provize=parseFloat(kampProd.sazba_obchod)||0;
           }
-          provizeTipy+=provize;
-          tipDetail.push({klient:k.klient,produkt:prodName,hodnota:hodnotaProd,provize:provize});
+          if(!perKlient[kl.id].tipy[prodName])perKlient[kl.id].tipy[prodName]=0;
+          perKlient[kl.id].tipy[prodName]+=provize;
+          if(opTipy[prodName]!==undefined)opTipy[prodName]+=provize;
+          opTipyTotal+=provize;
         });
       }catch(e){}
     });
-    var celkem=odmena+provizeTipy;
-    var dn=(u.jmeno+' '+u.prijmeni).trim()||u.username;
-    rows.push([mesic,dn,volanych,schM.length,pct+'%',odmena.toFixed(0),provizeTipy.toFixed(0),celkem.toFixed(0)]);
-    // Detail tipů
-    if(tipDetail.length){
-      tipDetail.forEach(function(t){
-        rows.push(['','  ⭐ TIP: '+t.klient,'','','',t.produkt,t.hodnota.toLocaleString('cs-CZ')+' Kč',t.provize.toFixed(0)+' Kč']);
-      });
-    }
-    // Detail schůzek
-    var schDetail=DB.klienti.filter(function(k){return k.je_tip&&String(k.tipovala_op_id||'')===String(u.id);}).filter(function(k){
-      return DB.aktivity.some(function(a){return a.klient_id===k.id&&a.typ==='sch';});
+    
+    sumSchuzky+=opSchuzky;sumObchod+=opObchod;sumTipy+=opTipyTotal;
+    
+    // Záhlaví operátorky
+    var opCelkem=opSchuzky+opObchod+opTipyTotal;
+    allRows.push([]);
+    allRows.push(['=== '+dn+' === (Celkem: '+opCelkem.toFixed(0)+' Kč)']);
+    allRows.push(['','Klient','Schůzka','Doplatek','N. domov','N. auto','N. život','Účet','Penze','Celkem']);
+    
+    // Řádky per klient
+    Object.values(perKlient).forEach(function(k){
+      var ck=k.schuzka+k.obchod+Object.values(k.tipy).reduce(function(s,x){return s+x;},0);
+      allRows.push(['',k.klient,k.schuzka.toFixed(0),k.obchod.toFixed(0),
+        (k.tipy['Náš domov']||0).toFixed(0),(k.tipy['Naše auto']||0).toFixed(0),
+        (k.tipy['Náš život']||0).toFixed(0),(k.tipy['Účet']||0).toFixed(0),
+        (k.tipy['Penze']||0).toFixed(0),ck.toFixed(0)]);
     });
-    schDetail.forEach(function(k){
-      var schA=DB.aktivity.filter(function(a){return a.klient_id===k.id&&a.typ==='sch';})[0];
-      if(schA)rows.push(['','  📅 Domluvená schůzka','',k.klient,fmtD(schA.datum),'','','']);
-    });
+    
+    // Součet operátorky
+    allRows.push(['','SOUČET',opSchuzky.toFixed(0),opObchod.toFixed(0),
+      (opTipy['Náš domov']||0).toFixed(0),(opTipy['Naše auto']||0).toFixed(0),
+      (opTipy['Náš život']||0).toFixed(0),(opTipy['Účet']||0).toFixed(0),
+      (opTipy['Penze']||0).toFixed(0),opCelkem.toFixed(0)]);
   });
-  dlCSV(rows.slice(1),rows[0],'odmeny_'+mesic+'.csv');
+  
+  var celkem=sumSchuzky+sumTipy+sumObchod;
+  var finalRows=[];
+  finalRows.push(['ODMĚNY OPERÁTOREK - '+mesic]);
+  finalRows.push([]);
+  finalRows.push(['Provize za schůzky','Provize z tipů','Doplatek za obchody','CELKEM']);
+  finalRows.push([sumSchuzky.toFixed(0)+' Kč',sumTipy.toFixed(0)+' Kč',sumObchod.toFixed(0)+' Kč',celkem.toFixed(0)+' Kč']);
+  allRows.forEach(function(r){finalRows.push(r);});
+  
+  dlCSV(finalRows.slice(1),finalRows[0],'odmeny_'+mesic+'.csv');
 }
+
 
 function exportOdmeny(){
   if(CU.role==='tl'){toast('Export je dostupný jen pro manažera','err');return;}
@@ -3903,7 +3942,30 @@ function doDelete(){
 }
 
 function kontrolaTelegramNotifs(){
-  // Spustit jen jednou denně
+  var now=new Date();
+  var hour=now.getHours();
+  
+  // RANNÍ PŘEHLED (7:00 - 9:00) - jen 1x denně
+  var lastMorning=localStorage.getItem('tg_morning');
+  if(hour>=7&&hour<10&&lastMorning!==TODAY){
+    var dnesSch=DB.aktivity.filter(function(a){return a.typ==='sch'&&a.datum===TODAY&&a.stav!=='oz_zrusena';});
+    dnesSch.sort(function(a,b){return(a.slot||'')>(b.slot||'')?1:-1;});
+    var msg='🌅 <b>Dnešní schůzky ('+dnesSch.length+')</b>\n\n';
+    if(dnesSch.length){
+      msg+=dnesSch.map(function(a){
+        var k=DB.klienti.find(function(x){return x.id===a.klient_id;})||{};
+        var oz=DB.uzivatele.find(function(u){return u.id===a.oz_id;})||{};
+        var ozJm=oz.id?((oz.jmeno+' '+oz.prijmeni).trim()||oz.username):'?';
+        return '• '+(a.slot||'?')+' – <b>'+(k.klient||'?')+'</b> ('+ozJm+')'+(a.typ_schuzky==='telefonicka'?' 📞':' 👤');
+      }).join('\n');
+    } else {
+      msg+='Žádné schůzky.';
+    }
+    sendTelegramMgr(msg);
+    localStorage.setItem('tg_morning',TODAY);
+  }
+  
+  // Spustit jen jednou denně - ostatní
   var lastRun=localStorage.getItem('tg_last_run');
   if(lastRun===TODAY)return;
   
