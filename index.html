@@ -2420,7 +2420,62 @@ function loadDash(){
   });
 }
 
+
+function renderOpDash(r){
+  var klienti=(r.klienti||[]).filter(function(k){return String(k.prirazen_op||'')===String(CU.id);});
+  var klIds=klienti.map(function(k){return k.id;});
+  var aktivity=(r.aktivity||[]).filter(function(a){return klIds.indexOf(a.klient_id)>=0;});
+  var mesic=v('dashMesic')||TODAY.slice(0,7);
+  
+  // KPI tento měsíc
+  var hovMes=aktivity.filter(function(a){return a.typ==='tel'&&(a.datum||'').startsWith(mesic);});
+  var schMes=aktivity.filter(function(a){return a.typ==='sch'&&(a.datum||'').startsWith(mesic);});
+  var volanychKl=[...new Set(hovMes.map(function(a){return a.klient_id;}))].length;
+  var konv=volanychKl?Math.round(schMes.length/volanychKl*100):0;
+  
+  // Dnes a po termínu
+  var dnesPlan=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum===TODAY;});
+  var poTerm=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum<TODAY;});
+  var zitra=new Date(TODAY);zitra.setDate(zitra.getDate()+1);var zStr=zitra.toISOString().slice(0,10);
+  var zitraPlan=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum===zStr;});
+  var tydenEnd=new Date(TODAY);tydenEnd.setDate(tydenEnd.getDate()+7);var tStr=tydenEnd.toISOString().slice(0,10);
+  var tydenPlan=aktivity.filter(function(a){return a.typ==='plan'&&!a.stav&&a.datum>zStr&&a.datum<=tStr;});
+  
+  var aktivni=klienti.filter(function(k){return!isUzav(k);}).length;
+  var schDomluveno=klienti.filter(function(k){return k.stav_klienta==='uz_schuzka';}).length;
+  
+  function actRow(a){
+    var k=klienti.find(function(x){return x.id===a.klient_id;})||{};
+    return '<div onclick="showTab(\'klienti\');selClient(\''+a.klient_id+'\')" style="padding:8px 10px;background:var(--wh);border:1px solid var(--g1);border-radius:6px;margin-bottom:5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
+      '<div><div style="font-weight:600;font-size:12px">'+esc(k.klient||'?')+'</div>'+
+      '<div style="font-size:10px;color:var(--g3)">'+esc(k.telefon||'')+(a.poznamka?' · '+esc(a.poznamka):'')+'</div></div>'+
+      '<div style="font-size:11px;font-weight:600;color:var(--bd)">'+(a.cas||'—')+'</div>'+
+    '</div>';
+  }
+  
+  var html='<div class="dwrap">'+
+    '<div class="dkpi">'+
+      '<div class="dkpi-c"><div class="dkpi-l">Aktivní klienti</div><div class="dkpi-v">'+aktivni+'</div></div>'+
+      '<div class="dkpi-c"><div class="dkpi-l">Telefonáty / měsíc</div><div class="dkpi-v">'+hovMes.length+'</div></div>'+
+      '<div class="dkpi-c"><div class="dkpi-l">Schůzky / měsíc</div><div class="dkpi-v">'+schMes.length+'</div></div>'+
+      '<div class="dkpi-c"><div class="dkpi-l">Konverze</div><div class="dkpi-v">'+konv+'%</div></div>'+
+      '<div class="dkpi-c"><div class="dkpi-l">Schůzka domluvena</div><div class="dkpi-v">'+schDomluveno+'</div></div>'+
+    '</div>'+
+    (poTerm.length?'<div class="dc"><h3 style="color:#E65100">⚠ Po termínu ('+poTerm.length+')</h3>'+poTerm.map(actRow).join('')+'</div>':'')+
+    '<div class="dc"><h3>📞 Dnes ('+dnesPlan.length+')</h3>'+
+      (dnesPlan.length?dnesPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
+    '<div class="dc"><h3>🌅 Zítra ('+zitraPlan.length+')</h3>'+
+      (zitraPlan.length?zitraPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
+    '<div class="dc"><h3>📆 Tento týden ('+tydenPlan.length+')</h3>'+
+      (tydenPlan.length?tydenPlan.map(actRow).join(''):'<div style="font-size:11px;color:var(--g3);padding:6px">Žádné volání naplánováno</div>')+'</div>'+
+  '</div>';
+  document.getElementById('dashBody').innerHTML=html;
+}
+
+
 function renderDash(r){
+  // Pro operátorku speciální dashboard
+  if(CU.role==='op'){renderOpDash(r);return;}
   var mesic=v('dashMesic')||TODAY.slice(0,7);
   var klienti=r.klienti||[],aktivity=r.aktivity||[],users=r.uzivatele||[],kampane=r.kampane||[];
   var allOZdash=users.filter(function(u){return u.role==='oz'&&u.aktivni!==false;}).map(function(u){return {id:u.id,jmeno:(u.jmeno+' '+u.prijmeni).trim()||u.username,oblast:''};});
@@ -2922,6 +2977,7 @@ function genHeslo(){
 }
 
 function sendUserEmails(user,heslo){
+  console.log('sendUserEmails called',user.email,heslo);
   var EDGE_URL='https://onkrjavnvstztyrfrpxj.supabase.co/functions/v1/send-email';
   var appUrl=location.origin+location.pathname;
   // Email 1: Přihlašovací údaje (bez hesla)
@@ -2943,10 +2999,16 @@ function sendUserEmails(user,heslo){
     '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník · ČSOB Pojišťovna</p></div>';
   
   fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
-    body:JSON.stringify({to:user.email,subject:'Schůzkovník – přístupové údaje',html:html1})}).catch(function(){});
+    body:JSON.stringify({to:user.email,subject:'Schůzkovník – přístupové údaje',html:html1})})
+    .then(function(r){return r.json();})
+    .then(function(d){console.log('Email 1:',d);if(d.messageId||d.id)toast('Email 1 odeslán','ok');else if(d.message)toast('Email 1 chyba: '+d.message,'err');})
+    .catch(function(e){console.error('Email 1 fail:',e);toast('Email 1 chyba','err');});
   setTimeout(function(){
     fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
-      body:JSON.stringify({to:user.email,subject:'Schůzkovník – jednorázové heslo',html:html2})}).catch(function(){});
+      body:JSON.stringify({to:user.email,subject:'Schůzkovník – jednorázové heslo',html:html2})})
+      .then(function(r){return r.json();})
+      .then(function(d){console.log('Email 2:',d);if(d.messageId||d.id)toast('Email 2 odeslán','ok');else if(d.message)toast('Email 2 chyba: '+d.message,'err');})
+      .catch(function(e){console.error('Email 2 fail:',e);toast('Email 2 chyba','err');});
   },1500);
 }
 
