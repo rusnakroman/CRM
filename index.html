@@ -982,10 +982,10 @@ function datNaroz(rc){
   return d+'. '+m+'. '+y;
 }
 document.querySelectorAll('.overlay').forEach(function(o){
-  o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('open');});
+  o.addEventListener('click',function(e){if(e.target===o&&!o.dataset.force)o.classList.remove('open');});
 });
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(function(o){o.classList.remove('open');});
+  if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(function(o){if(o.dataset.force)return;o.classList.remove('open');});
   if(e.key==='Enter'&&document.getElementById('ls').style.display!=='none')doLogin();
 });
 
@@ -1042,7 +1042,7 @@ function doLogin(){
       localStorage.setItem('crm_u',JSON.stringify(CU));
       loadAll(function(){
         startApp();
-        if(CU.must_change_password)setTimeout(function(){openPwModal();toast('Musíte si změnit heslo','err');},500);
+        if(CU.must_change_password)setTimeout(function(){openPwModal(true);toast('Musíte si změnit heslo','warn');},500);
       });
     }).catch(function(e){hideLoader();document.getElementById('lErr').textContent='Chyba: '+e.message;});
 }
@@ -2056,7 +2056,7 @@ function sendEmail(a,klient){
     '<tr><td style="padding:7px 12px;color:#666">Zapsal/a</td><td style="padding:7px 12px">'+esc(a.vytvoril||'—')+'</td></tr>'+
     '</table>'+
     '<div style="background:#E8F5E8;border:1px solid #A5D6A7;border-radius:5px;padding:9px 12px;margin-top:14px;font-size:12px">V příloze je soubor schuzka.ics – otevřením ho přidáte do svého kalendáře.</div>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:12px">CRM Navolávání</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:12px">Schůzkovník</p></div>';
   var icsText=buildICS(a,klient,oz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
   // Odeslat přes Supabase Edge Function (řeší CORS)
@@ -2097,7 +2097,7 @@ function sendEmailPrehod(a,klient,noOz,datum,slot){
     '<h2 style="color:#1F3864;border-bottom:2px solid #1F3864;padding-bottom:7px;margin-bottom:14px">Schůzka přehozena</h2>'+
     '<p style="margin-bottom:12px">Schůzka s klientem <strong>'+esc(klient.klient)+'</strong> byla přehozena na: <strong>'+esc(noOz.jmeno)+'</strong></p>'+
     '<p>Datum: <strong>'+fmtD(datum)+(slot?' · '+slot:'')+'</strong></p>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:12px">CRM Navolávání</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:12px">Schůzkovník</p></div>';
   var fakeA={datum:datum,slot:slot,poznamka:a.poznamka,vytvoril:CU.dn};
   var icsText=buildICS(fakeA,klient,noOz);
   var icsB64=btoa(unescape(encodeURIComponent(icsText)));
@@ -2839,7 +2839,7 @@ function exportPDF(){
   var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Report '+mesic+'</title>'+
     '<style>body{font-family:Arial;padding:30px;color:#1a1a2e}h1{color:#1F3864;border-bottom:3px solid #1F3864;padding-bottom:8px}h2{color:#1F3864;margin-top:24px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e0e0e0}th{background:#EEF3FB;color:#1F3864;font-weight:700}.kpi{display:inline-block;background:#EEF3FB;padding:12px 18px;margin:4px;border-radius:8px;min-width:120px}.kpi-v{font-size:24px;font-weight:700;color:#1F3864}.kpi-l{font-size:11px;color:#666;text-transform:uppercase}.muted{color:#888;font-size:11px}@media print{body{padding:10px}}</style></head><body>'+
     '<h1>Měsíční report '+mesic+'</h1>'+
-    '<div class="muted">Vygenerováno '+new Date().toLocaleString('cs-CZ')+' · ČSOB Pojišťovna</div>'+
+    '<div class="muted">Vygenerováno '+new Date().toLocaleString('cs-CZ')+' · </div>'+
     '<div style="margin:20px 0">'+
       '<div class="kpi"><div class="kpi-v">'+schuzky.length+'</div><div class="kpi-l">Schůzek</div></div>'+
       '<div class="kpi"><div class="kpi-v">'+hovory.length+'</div><div class="kpi-l">Telefonátů</div></div>'+
@@ -2910,26 +2910,31 @@ function saveKamp(){
            kpi_20:parseFloat(v('kampKpi20'))||0,kpi_30:parseFloat(v('kampKpi30'))||0,aktivni:true};
   console.log('saveKamp:',isEdit?'UPDATE':'INSERT',row);
   
-  // Aktualizovat lokálně OKAMŽITĚ
-  var i=DB.kampane.findIndex(function(x){return x.id===row.id;});
-  if(i>=0)DB.kampane[i]=row;else DB.kampane.push(row);
-  closeModal('kampModal');renderKamp();buildFilters();
-  
-  // Pak asynchronně do DB
-  var p=isEdit?sbUpd('kampane','id=eq.'+row.id,row):sbIns('kampane',row);
-  p.then(function(res){
-    console.log('saveKamp response:',res);
-    if(res&&res.code){
-      toast('Chyba DB: '+(res.message||res.code),'err');
-      // Vrátit zpět
-      loadAll(function(){renderKamp();buildFilters();});
-      return;
+  showLoader('Ukládám kampaň...');
+  // Použijeme přímý fetch s detailní kontrolou response
+  var url=SB+'/rest/v1/kampane'+(isEdit?'?id=eq.'+row.id:'');
+  fetch(url,{
+    method:isEdit?'PATCH':'POST',
+    headers:sbH({'Prefer':'return=representation'}),
+    body:JSON.stringify(row)
+  }).then(function(r){
+    console.log('Status:',r.status);
+    if(!r.ok){
+      return r.text().then(function(txt){throw new Error('HTTP '+r.status+': '+txt.slice(0,200));});
     }
+    return r.json();
+  }).then(function(res){
+    console.log('saveKamp OK:',res);
+    hideLoader();
+    var i=DB.kampane.findIndex(function(x){return x.id===row.id;});
+    if(i>=0)DB.kampane[i]=row;else DB.kampane.push(row);
     editKampId=null;
+    closeModal('kampModal');renderKamp();buildFilters();
     toast('Kampaň uložena','ok');
   }).catch(function(e){
-    console.error('saveKamp error:',e);
-    toast('Síťová chyba: '+(e.message||'unknown'),'err');
+    hideLoader();
+    console.error('saveKamp ERROR:',e);
+    toast('Chyba: '+e.message,'err');
   });
 }
 
@@ -3006,7 +3011,7 @@ function sendUserEmails(user,heslo){
     '<p>Pro přihlášení použijte odkaz: <a href="'+appUrl+'">'+appUrl+'</a></p>'+
     '<p>Vaše přihlašovací jméno: <strong>'+esc(user.username)+'</strong></p>'+
     '<p style="background:#FFF3E0;padding:12px;border-radius:6px;color:#E65100">Heslo dorazí v samostatném e-mailu.</p>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník · ČSOB Pojišťovna</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník</p></div>';
   // Email 2: Jen heslo
   var html2='<div style="font-family:Arial,sans-serif;max-width:520px">'+
     '<h2 style="color:#1F3864">Vaše jednorázové heslo</h2>'+
@@ -3014,7 +3019,7 @@ function sendUserEmails(user,heslo){
     '<p>Vaše jednorázové heslo do Schůzkovníku je:</p>'+
     '<p style="font-size:20px;font-weight:700;letter-spacing:2px;background:#EEF3FB;padding:16px;text-align:center;border-radius:6px;color:#1F3864;font-family:monospace">'+esc(heslo)+'</p>'+
     '<p style="color:#E65100;font-weight:600">Po prvním přihlášení vás aplikace vyzve k jeho změně.</p>'+
-    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník · ČSOB Pojišťovna</p></div>';
+    '<p style="color:#aaa;font-size:11px;margin-top:20px">Schůzkovník</p></div>';
   
   fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},
     body:JSON.stringify({to:user.email,subject:'Schůzkovník – přístupové údaje',html:html1})})
@@ -3088,14 +3093,34 @@ function saveUser(){
 // ══ PŘIHLÁSIT JAKO ═══════════════════════════════════════════
 
 // ══ HESLO ════════════════════════════════════════════════════
-function openPwModal(){document.getElementById('pwNew').value='';document.getElementById('pwConf').value='';document.getElementById('pwModal').classList.add('open');}
+function openPwModal(force){
+  document.getElementById('pwNew').value='';
+  document.getElementById('pwConf').value='';
+  // Pokud je vynucená změna - skryj Zrušit tlačítko
+  var modal=document.getElementById('pwModal');
+  var zrusitBtn=modal.querySelector('.btn-g');
+  if(force||(CU&&CU.must_change_password)){
+    if(zrusitBtn)zrusitBtn.style.display='none';
+    modal.dataset.force='1';
+  } else {
+    if(zrusitBtn)zrusitBtn.style.display='';
+    delete modal.dataset.force;
+  }
+  modal.classList.add('open');
+}
 function savePw(){
   var p1=v('pwNew').trim(),p2=v('pwConf').trim();
   if(!p1||p1.length<4){toast('Heslo min. 4 znaky','err');return;}
   if(p1!==p2){toast('Hesla se neshodují','err');return;}
   sbUpd('uzivatele','id=eq.'+CU.id,{heslo:p1,must_change_password:false}).then(function(){
     CU.heslo=p1;CU.must_change_password=false;
-    localStorage.setItem('crm_u',JSON.stringify(CU));closeModal('pwModal');toast('Heslo změněno','ok');
+    localStorage.setItem('crm_u',JSON.stringify(CU));
+    var modal=document.getElementById('pwModal');
+    delete modal.dataset.force;
+    var zrusitBtn=modal.querySelector('.btn-g');
+    if(zrusitBtn)zrusitBtn.style.display='';
+    closeModal('pwModal');
+    toast('Heslo změněno','ok');
   });
 }
 
@@ -3241,7 +3266,7 @@ function loginAs(username, heslo){
       localStorage.setItem('crm_u',JSON.stringify(CU));
       loadAll(function(){
         startApp();
-        if(CU.must_change_password)setTimeout(function(){openPwModal();toast('Musíte si změnit heslo','err');},500);
+        if(CU.must_change_password)setTimeout(function(){openPwModal(true);toast('Musíte si změnit heslo','warn');},500);
       });
     }).catch(function(e){hideLoader();toast('Chyba: '+e.message,'err');});
 }
