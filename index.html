@@ -1554,6 +1554,7 @@ function renderKarta(id){
           '<div class="kname">'+esc(c.klient)+'</div>'+
           '<div class="kmeta">'+
             '<a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:rgba(255,255,255,.85);text-decoration:none">'+esc(c.telefon)+'</a>'+
+            '<button onclick="volatCislo(\''+esc(c.telefon)+'\',\''+esc(c.klient)+'\')" style="background:#4CAF50;color:#fff;border:none;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;margin-left:6px">📞 Volat</button>'+
             (c.email?'<span>'+esc(c.email)+'</span>':'')+
             (c.mesto||c.okres?'<span>'+(c.mesto||c.okres)+'</span>':'')+
             (c.kampan?'<span>'+esc(c.kampan)+'</span>':'')+
@@ -1567,7 +1568,7 @@ function renderKarta(id){
     '<div class="kb">'+
     // INFO GRID
     '<div class="ig">'+
-      '<div class="ii"><label>Telefon</label><a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:var(--bm);font-weight:700;font-size:12px;text-decoration:none">'+esc(c.telefon)+'</a></div>'+
+      '<div class="ii"><label>Telefon</label><a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:var(--bm);font-weight:700;font-size:12px;text-decoration:none">'+esc(c.telefon)+'</a> <button onclick="volatCislo(\''+esc(c.telefon)+'\',\''+esc(c.klient)+'\')" style="background:#4CAF50;color:#fff;border:none;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px">📞 Volat</button></div>'+
       '<div class="ii"><label>E-mail</label><span>'+(c.email||'—')+'</span></div>'+
       '<div class="ii"><label>Město / Okres</label><span>'+(c.mesto||c.okres||'—')+'</span></div>'+
       (narozeni?'<div class="ii"><label>Datum narození</label><span>'+narozeni+'</span></div>':'')+
@@ -2794,22 +2795,25 @@ function renderKal(){
         var maSloty=DB.oz_kapacity.some(function(k){return k.oz_id===oz.id&&k.datum===ds;});
         var isSv=!!svatky[ds];
         var cls=isT?' kal-today-col':'';
+        // Sjednocený design všech buněk
+        var bgCol,brCol,txtTop,txtBot,label,click='',ttl='';
         if(!kap){
           // ŠEDÁ - nevyplněno
-          html+='<td class="'+cls+'" style="background:#F5F5F5;color:#BDBDBD;text-align:center;font-size:10px;border:1px solid var(--g1)">'+(isSv&&hour===HOURS[0]?'🎉':'–')+'</td>';
-        }
-        else if(kap.obsazeno_klient_id){
-          // ČERVENÁ - obsazené (bez jména klienta)
+          bgCol='#F5F5F5';brCol='#E0E0E0';txtTop='#9E9E9E';txtBot='#BDBDBD';label='nevyplněno';
+        } else if(kap.obsazeno_klient_id){
+          // ČERVENÁ - obsazené
           var kl=DB.klienti.find(function(c){return c.id===kap.obsazeno_klient_id;})||{};
-          html+='<td class="'+cls+'" onclick="goKlient(\''+kl.id+'\')" title="'+esc(kl.klient)+'" style="background:#FFCDD2;cursor:pointer;border:1px solid #E57373">'+
-            '<div style="font-size:10px;font-weight:700;color:#C62828;text-align:center;padding:4px">'+hour+'</div>'+
-            '<div style="font-size:9px;color:#B71C1C;text-align:center">obsazeno</div></td>';
+          bgCol='#FFCDD2';brCol='#E57373';txtTop='#C62828';txtBot='#B71C1C';label='obsazeno';
+          click=' onclick="goKlient(\''+kl.id+'\')" style="cursor:pointer"';
+          ttl=' title="'+esc(kl.klient)+'"';
         } else {
           // ZELENÁ - volné
-          html+='<td class="'+cls+'" title="Volno" style="background:#C8E6C9;text-align:center;border:1px solid #81C784">'+
-            '<div style="font-size:10px;font-weight:700;color:#2E7D32;padding:4px">'+hour+'</div>'+
-            '<div style="font-size:9px;color:#1B5E20">volné</div></td>';
+          bgCol='#C8E6C9';brCol='#81C784';txtTop='#2E7D32';txtBot='#1B5E20';label='volné';
+          ttl=' title="Volno"';
         }
+        html+='<td class="'+cls+'"'+click+ttl+' style="background:'+bgCol+';border:1px solid '+brCol+';text-align:center;padding:0">'+
+          '<div style="font-size:10px;font-weight:700;color:'+txtTop+';padding:4px 2px 1px">'+hour+'</div>'+
+          '<div style="font-size:9px;color:'+txtBot+';padding:0 2px 4px">'+label+'</div></td>';
       });
       html+='</tr>';
     });
@@ -4220,6 +4224,16 @@ function kontrolaTelegramNotifs(){
   }
   
   localStorage.setItem('tg_last_run',TODAY);
+}
+
+// ══ VOLÁNÍ PŘES TELEFON ═════════════════════════════════════
+function volatCislo(cislo, jmeno){
+  if(!cislo){toast('Chybí telefonní číslo','err');return;}
+  var payload={cislo:cislo,jmeno:jmeno||'',ts:Date.now()};
+  try{
+    localStorage.setItem('phone_call_request',JSON.stringify(payload));
+  }catch(e){toast('Chyba: '+e.message,'err');return;}
+  toast('Číslo posláno do telefonu','ok');
 }
 
 function backToMe(){
