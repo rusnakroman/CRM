@@ -330,7 +330,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div id="notifPanel" style="display:none;position:absolute;top:35px;right:0;background:#fff;border:1px solid var(--g1);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);width:320px;max-height:400px;overflow-y:auto;z-index:1000"></div>
     </div>
     <button class="hbtn" id="notifBtn" style="display:none;position:relative;padding:6px 9px" onclick="toggleNotif()">🔔<span id="notifBadge" style="display:none;position:absolute;top:0;right:0;background:#E53935;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:14px;text-align:center">0</span></button>
-    <button class="hbtn" id="tlOzToggleBtn" style="display:none;background:#FFA726;color:#fff;border:none" onclick="toggleTlOz()">👤 Jako OZ</button>
+    <button class="hbtn" id="tlSwitchToOzBtn" style="display:none;background:#FFA726;color:#fff;border:none" onclick="switchToOzAccount()">👤 Jako OZ</button>
     <button class="hbtn" onclick="openPwModal()">Heslo</button>
     <button class="hbtn" onclick="doLogout()">Odhlásit</button>
   </div>
@@ -835,6 +835,11 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <label>Team Leader (pro OZ)</label>
       <select id="uTl"><option value="">— bez TL —</option></select>
     </div>
+    <div class="fr" id="uPairOzRow" style="display:none">
+      <label>Propojený OZ účet (pro přepínání)</label>
+      <select id="uPairOz"><option value="">— žádný —</option></select>
+      <div style="font-size:10px;color:var(--g3);margin-top:3px">Team Leader se bude moci přihlásit jako tento OZ jedním kliknutím.</div>
+    </div>
     <div class="fr" id="uTipOzRow" style="display:none">
       <label>Navázán na OZ (volitelné)</label>
       <select id="uTipOz"><option value="">— do fronty manažerovi —</option></select>
@@ -956,7 +961,6 @@ var preraditKid = null, editUId = null, editKampId = null;
 var pendDel = null, hovorResult = '';
 var TODAY = new Date().toISOString().slice(0,10);
 var originalCU = null;
-var tlAsOz = false;
 var kalStart = monOf(new Date());
 var HOURS = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
 
@@ -1136,8 +1140,11 @@ function startApp(){
   document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('tipKlBtn').style.display=(CU.role==='op'||CU.role==='tip')?'block':'none';
-  var tlB=document.getElementById('tlOzToggleBtn');
-  if(tlB){tlB.style.display=CU.role==='tl'?'inline-block':'none';tlB.textContent=tlAsOz?'🎯 Zpět k týmu':'👤 Jako OZ';tlB.style.background=tlAsOz?'#66BB6A':'#FFA726';}
+  var tlBtn=document.getElementById('tlSwitchToOzBtn');
+  if(tlBtn){
+    var meFresh=DB.uzivatele.find(function(u){return u.id===CU.id;})||{};
+    tlBtn.style.display=(CU.role==='tl'&&meFresh.pair_oz_username)?'inline-block':'none';
+  }
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
   if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
@@ -1156,7 +1163,7 @@ function startApp(){
 function buildNav(){
   var tabs=[];
   if(CU.role==='op'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'}];}
-  if(CU.role==='oz'||(CU.role==='tl'&&tlAsOz)){tabs=[{id:'kap',l:'Kapacity'},{id:'ozS',l:'Schůzky'},{id:'klienti',l:'Klienti'}];}
+  if(CU.role==='oz'){tabs=[{id:'kap',l:'Kapacity'},{id:'ozS',l:'Schůzky'},{id:'klienti',l:'Klienti'}];}
   if(CU.role==='tip'){tabs=[{id:'klienti',l:'Moji klienti'}];}
   if(CU.role==='mgr'||CU.role==='tl'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'},{id:'kamp',l:'Kampaně'},{id:'users',l:'Uživatelé'}];}
   if(CU.role==='tl'){tabs=[{id:'dash',l:'Dashboard'},{id:'klienti',l:'Klienti'},{id:'kal',l:'Kalendář OZ'},{id:'prip',l:'Naplánovaná volání'},{id:'kamp',l:'Kampaně'}];}
@@ -1301,7 +1308,7 @@ function buildStavFilter(){
       ['oz_nezajem','OZ – nezájem'],
       ['oz_zrusena','OZ – zrušena']
     ];
-  } else if(CU.role==='oz'||(CU.role==='tl'&&tlAsOz)){
+  } else if(CU.role==='oz'){
     opts=[
       ['vse','Všichni klienti'],
       ['sch_plan','Schůzka – plánovaná'],
@@ -1413,14 +1420,7 @@ function renderClients(){
     list.innerHTML='<div class="esb"><div class="ei">—</div><p>'+(CU.role==='mgr'||CU.role==='tl'?'Nahraj CSV nebo přidej klienta':'Zatím žádní přiřazení klienti')+'</p></div>';
     updStats();return;
   }
-  // TL v OZ módu - jen své klienty
-  var tlOzKids=null;
-  if(CU.role==='tl'&&tlAsOz){
-    tlOzKids={};
-    DB.aktivity.filter(function(a){return a.typ==='sch'&&String(a.oz_id||'')===String(CU.id);}).forEach(function(a){tlOzKids[a.klient_id]=true;});
-  }
   var fil=DB.klienti.filter(function(c){
-    if(tlOzKids&&!tlOzKids[c.id])return false;
     if(q&&!c.klient.toLowerCase().includes(q)&&!(c.telefon||'').includes(q))return false;
     if(fk&&c.kampan!==fk)return false;
     if(fo&&c.okres!==fo)return false;
@@ -3675,6 +3675,15 @@ function onURole(){
   if(tlRow)tlRow.style.display=r==='oz'?'block':'none';
   var tgSec=document.getElementById('uTelegramSec');
   if(tgSec)tgSec.style.display=r==='mgr'?'block':'none';
+  var pairRow=document.getElementById('uPairOzRow');
+  if(pairRow){
+    pairRow.style.display=(r==='tl'&&CU&&CU.role==='mgr')?'block':'none';
+    if(r==='tl'){
+      var ozs=DB.uzivatele.filter(function(u){return u.role==='oz'&&u.aktivni;});
+      document.getElementById('uPairOz').innerHTML='<option value="">— žádný —</option>'+
+        ozs.map(function(o){return '<option value="'+o.username+'">'+esc((o.jmeno+' '+o.prijmeni).trim()||o.username)+' ('+o.username+')</option>';}).join('');
+    }
+  }
   var tipRow=document.getElementById('uTipOzRow');
   if(tipRow){
     tipRow.style.display=r==='tip'?'block':'none';
@@ -3796,7 +3805,7 @@ function saveUser(){
   if(!isNew&&heslo.length<4){toast('Heslo min. 4 znaky','err');return;}
   function doSave(oz_id){
     var uid2=editUId||uid();
-    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit,must_change_password:mustChange,telegram_token:v('uTgToken').trim(),telegram_chat_id:v('uTgChat').trim(),tl_id:role==='tip'?v('uTipOz'):role==='oz'?(v('uTl')||''):''};
+    var u={id:uid2,username:username,heslo:heslo,jmeno:jmeno,prijmeni:prijmeni,email:email,role:role,oz_id:oz_id||'',aktivni:true,limit_klientu:limit,must_change_password:mustChange,telegram_token:v('uTgToken').trim(),telegram_chat_id:v('uTgChat').trim(),tl_id:role==='tip'?v('uTipOz'):role==='oz'?(v('uTl')||''):'',pair_oz_username:role==='tl'?(v('uPairOz')||''):''};
     sbIns('uzivatele',u).then(function(){
       var i=DB.uzivatele.findIndex(function(x){return x.id===uid2;});
       if(i>=0)DB.uzivatele[i]=u;else DB.uzivatele.push(u);
@@ -4254,22 +4263,6 @@ function kontrolaTelegramNotifs(){
   localStorage.setItem('tg_last_run',TODAY);
 }
 
-function toggleTlOz(){
-  tlAsOz=!tlAsOz;
-  var btn=document.getElementById('tlOzToggleBtn');
-  if(btn){
-    btn.textContent=tlAsOz?'🎯 Zpět k týmu':'👤 Jako OZ';
-    btn.style.background=tlAsOz?'#66BB6A':'#FFA726';
-  }
-  buildNav();
-  buildStavFilter();
-  // Přepnout na výchozí tab podle módu
-  if(tlAsOz)showTab('kap');
-  else showTab('dash');
-  renderClients();
-  toast(tlAsOz?'Přepnuto na OZ':'Zpět jako Team Leader','ok');
-}
-
 // ══ VOLÁNÍ PŘES TELEFON ═════════════════════════════════════
 function volatCislo(cislo, jmeno){
   if(!cislo){toast('Chybí telefonní číslo','err');return;}
@@ -4278,6 +4271,27 @@ function volatCislo(cislo, jmeno){
     localStorage.setItem('phone_call_request',JSON.stringify(payload));
   }catch(e){toast('Chyba: '+e.message,'err');return;}
   toast('Číslo posláno do telefonu','ok');
+}
+
+function switchToOzAccount(){
+  var meFresh=DB.uzivatele.find(function(u){return u.id===CU.id;})||{};
+  var pairUsername=meFresh.pair_oz_username;
+  if(!pairUsername){toast('Není nastaven propojený OZ účet','err');return;}
+  var ozUser=DB.uzivatele.find(function(u){return u.username===pairUsername&&u.role==='oz'&&u.aktivni;});
+  if(!ozUser){toast('OZ účet nenalezen: '+pairUsername,'err');return;}
+  if(!confirm('Přihlásit se jako '+pairUsername+' (OZ)?'))return;
+  if(!originalCU){
+    originalCU=JSON.parse(JSON.stringify(CU));
+    localStorage.setItem('crm_orig',JSON.stringify(originalCU));
+  }
+  CU={id:ozUser.id,username:ozUser.username,role:ozUser.role,
+      dn:(ozUser.jmeno+' '+ozUser.prijmeni).trim()||ozUser.username,
+      jmeno:ozUser.jmeno,prijmeni:ozUser.prijmeni,email:ozUser.email,
+      oz_id:ozUser.oz_id||'',limit_klientu:ozUser.limit_klientu||0,
+      must_change_password:false};
+  localStorage.setItem('crm_u',JSON.stringify(CU));
+  loadAll(startApp);
+  toast('Přihlášen jako OZ: '+CU.dn,'ok');
 }
 
 function backToMe(){
