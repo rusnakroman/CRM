@@ -330,7 +330,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <div id="notifPanel" style="display:none;position:absolute;top:35px;right:0;background:#fff;border:1px solid var(--g1);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);width:320px;max-height:400px;overflow-y:auto;z-index:1000"></div>
     </div>
     <button class="hbtn" id="notifBtn" style="display:none;position:relative;padding:6px 9px" onclick="toggleNotif()">🔔<span id="notifBadge" style="display:none;position:absolute;top:0;right:0;background:#E53935;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:14px;text-align:center">0</span></button>
-    <button class="hbtn" id="tlOzToggleBtn" style="display:none;background:#FFA726;color:#fff" onclick="toggleTlOz()">👤 Jako OZ</button>
+    <button class="hbtn" id="tlOzToggleBtn" style="display:none;background:#FFA726;color:#fff;border:none" onclick="toggleTlOz()">👤 Jako OZ</button>
     <button class="hbtn" onclick="openPwModal()">Heslo</button>
     <button class="hbtn" onclick="doLogout()">Odhlásit</button>
   </div>
@@ -1136,8 +1136,8 @@ function startApp(){
   document.getElementById('importLabel').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('addKlBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   document.getElementById('tipKlBtn').style.display=(CU.role==='op'||CU.role==='tip')?'block':'none';
-  var tlBtn=document.getElementById('tlOzToggleBtn');
-  if(tlBtn){tlBtn.style.display=CU.role==='tl'?'inline-flex':'none';tlBtn.textContent=tlAsOz?'🎯 Zpět k týmu':'👤 Jako OZ';tlBtn.style.background=tlAsOz?'#66BB6A':'#FFA726';}
+  var tlB=document.getElementById('tlOzToggleBtn');
+  if(tlB){tlB.style.display=CU.role==='tl'?'inline-block':'none';tlB.textContent=tlAsOz?'🎯 Zpět k týmu':'👤 Jako OZ';tlB.style.background=tlAsOz?'#66BB6A':'#FFA726';}
   document.getElementById('priraditBtn').style.display=CU.role==='mgr'||CU.role==='tl'?'block':'none';
   var hs=document.getElementById('hromSloty');
   if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
@@ -1413,7 +1413,14 @@ function renderClients(){
     list.innerHTML='<div class="esb"><div class="ei">—</div><p>'+(CU.role==='mgr'||CU.role==='tl'?'Nahraj CSV nebo přidej klienta':'Zatím žádní přiřazení klienti')+'</p></div>';
     updStats();return;
   }
+  // TL v OZ módu - jen své klienty
+  var tlOzKids=null;
+  if(CU.role==='tl'&&tlAsOz){
+    tlOzKids={};
+    DB.aktivity.filter(function(a){return a.typ==='sch'&&String(a.oz_id||'')===String(CU.id);}).forEach(function(a){tlOzKids[a.klient_id]=true;});
+  }
   var fil=DB.klienti.filter(function(c){
+    if(tlOzKids&&!tlOzKids[c.id])return false;
     if(q&&!c.klient.toLowerCase().includes(q)&&!(c.telefon||'').includes(q))return false;
     if(fk&&c.kampan!==fk)return false;
     if(fo&&c.okres!==fo)return false;
@@ -4254,13 +4261,13 @@ function toggleTlOz(){
     btn.textContent=tlAsOz?'🎯 Zpět k týmu':'👤 Jako OZ';
     btn.style.background=tlAsOz?'#66BB6A':'#FFA726';
   }
-  // Přepnout nav a znovu načíst
   buildNav();
   buildStavFilter();
-  loadAll(function(){
-    startApp();
-    toast(tlAsOz?'Přepnuto na OZ':'Zpět jako Team Leader','ok');
-  });
+  // Přepnout na výchozí tab podle módu
+  if(tlAsOz)showTab('kap');
+  else showTab('dash');
+  renderClients();
+  toast(tlAsOz?'Přepnuto na OZ':'Zpět jako Team Leader','ok');
 }
 
 // ══ VOLÁNÍ PŘES TELEFON ═════════════════════════════════════
