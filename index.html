@@ -310,7 +310,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
 <!-- LOGIN -->
 <div id="ls">
   <div class="lbox">
-    <h2>Schůzkovník</h2>
+    <h2>CRM Navolávání</h2>
     <p>Přihlas se svými údaji</p>
     <div class="lf"><label>Uživatelské jméno</label><input type="text" id="lU" autocomplete="username" placeholder="username"></div>
     <div class="lf"><label>Heslo</label><input type="password" id="lH" placeholder="••••••••"></div>
@@ -956,6 +956,7 @@ var preraditKid = null, editUId = null, editKampId = null;
 var pendDel = null, hovorResult = '';
 var TODAY = new Date().toISOString().slice(0,10);
 var originalCU = null;
+var tlAsOz = false;
 var kalStart = monOf(new Date());
 var HOURS = ['8:00','9:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
 
