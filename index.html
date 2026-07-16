@@ -2250,7 +2250,13 @@ function saveSchStav(){
     if(!schuzky.length){toast('Nenalezena schůzka','err');return;}
     var sch=schuzky[0];
     sbUpd('aktivity','id=eq.'+sch.id,upd).then(function(){
-      Object.assign(sch,upd);closeModal('schStavModal');renderKarta(schStavKid);toast('Výsledek uložen','ok');
+      Object.assign(sch,upd);
+      // Aktualizovat stav klienta pokud nezájem/zrušena
+      if(d==='oz_nezajem'||d==='oz_zrusena'){
+        sbUpd('klienti','id=eq.'+schStavKid,{stav_klienta:d});
+        var k=DB.klienti.find(function(c){return c.id===schStavKid;});if(k)k.stav_klienta=d;
+      }
+      closeModal('schStavModal');renderKarta(schStavKid);renderClients();toast('Výsledek uložen','ok');
     });
   }
 }
