@@ -353,7 +353,7 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
       <button class="btn btn-p btn-sm" id="addKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openAddKlientModal()">+ Přidat klienta</button>
       <button class="btn btn-ok btn-sm" id="tipKlBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openTipModal()">⭐ Tipovat klienta</button>
       <button class="btn btn-g btn-sm" id="priraditBtn" style="display:none;width:100%;justify-content:center;margin-bottom:5px" onclick="openPriraditModal()">Přiřadit klienty</button>
-      <input class="sbsrch" id="srch" placeholder="Hledat jméno / telefon..." oninput="renderClients()">
+      <input class="sbsrch" id="srch" placeholder="Hledat cokoliv (jméno, tel, e-mail, RČ, kampaň...)" oninput="renderClients()">
       <div class="sbrow">
         <select id="fK" onchange="renderClients()"><option value="">Všechny kampaně</option></select>
         <select id="fO" onchange="renderClients()"><option value="">Všechny okresy</option></select>
@@ -1445,10 +1445,15 @@ function renderClients(){
   var list=document.getElementById('cList');
   if(!DB.klienti.length){
     list.innerHTML='<div class="esb"><div class="ei">—</div><p>'+(CU.role==='mgr'||CU.role==='tl'?'Nahraj CSV nebo přidej klienta':'Zatím žádní přiřazení klienti')+'</p></div>';
-    updStats();return;
+    console.log('[renderClients] po filtraci zobrazeno:', fil.length);
+  updStats();return;
   }
+  console.log('[renderClients]','role:',CU.role,'fst:',fst,'total klienti:',DB.klienti.length);
   var fil=DB.klienti.filter(function(c){
-    if(q&&!c.klient.toLowerCase().includes(q)&&!(c.telefon||'').includes(q))return false;
+    if(q){
+      var hay=[c.klient,c.telefon,c.email,c.mesto,c.okres,c.kampan,c.rodne_cislo,c.poznamka_klienta,c.stav_klienta].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
     if(fk&&c.kampan!==fk)return false;
     if(fo&&c.okres!==fo)return false;
     var kat=getKat(c),uzav=isUzav(c);
