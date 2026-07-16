@@ -1152,7 +1152,14 @@ function startApp(){
   var hs=document.getElementById('hromSloty');
   if(hs){hs.innerHTML=HOURS.map(function(h){return '<button type="button" class="kst hsl" data-val="'+h+'">'+h+'</button>';}).join('');hs.querySelectorAll('.hsl').forEach(function(b){b.addEventListener('click',function(){this.classList.toggle('on');});});}
   initDashMesic();
-  buildNav();buildStavFilter();buildFilters();renderClients();
+  buildNav();buildStavFilter();buildFilters();
+  // Vynutit výchozí filtr pro tuto roli (přepíše cache browseru)
+  var fsEl=document.getElementById('fStav');
+  if(fsEl){
+    var defV=CU.role==='op'?'aktivni':CU.role==='oz'?'sch_plan':CU.role==='tip'?'vse':'aktivni';
+    fsEl.value=defV;
+  }
+  renderClients();
 
   if(CU.role==='mgr')kontrolaTelegramNotifs();
   if(CU.role==='oz')showTab('kap');
@@ -1335,8 +1342,8 @@ function buildStavFilter(){
     ];
   } else if(CU.role==='oz'){
     opts=[
-      ['vse','Všichni klienti'],
       ['sch_plan','Schůzka – plánovaná'],
+      ['vse','Všichni klienti'],
       ['sch_potvr','Schůzka – potvrzená'],
       ['oz_obchod','Uzavřen obchod'],
       ['oz_odlozeno','Odloženo – výročí'],
@@ -1360,6 +1367,11 @@ function buildStavFilter(){
     ];
   }
   fs.innerHTML=opts.map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('');
+  // Vynutit výchozí hodnotu - vždy resetni na výchozí podle role
+  var defVal=CU.role==='op'?'aktivni':CU.role==='oz'?'sch_plan':CU.role==='tip'?'vse':'aktivni';
+  fs.value=defVal;
+  // Zajistit že se hodnota opravdu zobrazí (browser někdy ignoruje)
+  Array.from(fs.options).forEach(function(o){o.selected=(o.value===defVal);});
 }
 
 function buildFilters(){
@@ -1448,7 +1460,6 @@ function renderClients(){
     console.log('[renderClients] po filtraci zobrazeno:', fil.length);
   updStats();return;
   }
-  console.log('[renderClients]','role:',CU.role,'fst:',fst,'total klienti:',DB.klienti.length);
   var fil=DB.klienti.filter(function(c){
     if(q){
       var hay=[c.klient,c.telefon,c.email,c.mesto,c.okres,c.kampan,c.rodne_cislo,c.poznamka_klienta,c.stav_klienta].filter(Boolean).join(' ').toLowerCase();
