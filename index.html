@@ -304,6 +304,8 @@ header{background:var(--bd);color:#fff;padding:0 16px;height:48px;display:flex;a
   .tbl{font-size:10pt}
   .kpi-row{break-inside:avoid}
 }
+
+.st-plan{background:#FFF3E0;color:#E65100;border:1px solid #FFB74D}
 </style>
 </head>
 <body>
@@ -1188,12 +1190,11 @@ function showTab(name){
   if(name==='kamp')renderKamp();
 }
 function updBadge(){
-  var n=DB.aktivity.filter(function(a){return a.typ==='plan'&&a.datum===TODAY&&!a.stav;}).length;
   var myActs=CU.role==='op'?DB.aktivity.filter(function(a){
     var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});
     return kl&&String(kl.prirazen_op||'')===String(CU.id);
   }):DB.aktivity;
-  var myN=myActs.filter(function(a){return a.typ==='plan'&&a.datum===TODAY&&!a.stav;}).length;
+  var myN=myActs.filter(function(a){return (a.typ==='plan'&&a.datum===TODAY&&!a.stav)||(a.typ==='tel'&&a.stav==='naplanovano'&&a.datum===TODAY);}).length;
   document.querySelectorAll('.ntab[data-tab=prip]').forEach(function(b){
     if(myN>0){b.setAttribute('data-badge',myN);b.classList.add('badge');}
     else{b.removeAttribute('data-badge');b.classList.remove('badge');}
@@ -1437,7 +1438,7 @@ setInterval(function(){if(typeof updNotifs==='function'&&CU)updNotifs();},60000)
 
 function renderClients(){
   var q=(v('srch')||'').toLowerCase();
-  var fk=v('fK'),fo=v('fO'),fst=v('fStav')||(CU.role==='oz'||CU.role==='op'?'vse':'aktivni');
+  var fk=v('fK'),fo=v('fO'),fst=v('fStav')||(CU.role==='op'?'aktivni':CU.role==='oz'?'sch_plan':'aktivni');
   var dnesKids=getDnesKids();
   var list=document.getElementById('cList');
   if(!DB.klienti.length){
@@ -1453,7 +1454,10 @@ function renderClients(){
     if(fst==='tipy')return !!c.je_tip;
     if(fst==='vse')return true;
     if(fst==='tipy')return !!c.je_tip;
-    if(fst==='aktivni')return!uzav;
+    if(fst==='aktivni'){
+      if(CU.role==='op')return kat==='novy'||kat==='otevreny';
+      return !uzav;
+    }
     if(fst==='dnes')return dnesKids.indexOf(c.id)>=0&&!uzav;
     if(fst==='sch_plan'){
       return DB.aktivity.some(function(a){return a.klient_id===c.id&&a.typ==='sch'&&a.stav==='plan'&&!a.potvrzeno;});
@@ -1598,6 +1602,8 @@ function renderKarta(id){
       '<div class="ii"><label>Telefon</label><a href="tel:+420'+c.telefon.replace(/^0/,'')+'" style="color:var(--bm);font-weight:700;font-size:12px;text-decoration:none">'+esc(c.telefon)+'</a> <button onclick="volatCislo(\''+esc(c.telefon)+'\',\''+esc(c.klient)+'\')" style="background:#4CAF50;color:#fff;border:none;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px">📞 Volat</button></div>'+
       '<div class="ii"><label>E-mail</label><span>'+(c.email||'—')+'</span></div>'+
       '<div class="ii"><label>Město / Okres</label><span>'+(c.mesto||c.okres||'—')+'</span></div>'+
+      '<div class="ii"><label>Kampaň</label><span style="font-weight:700;color:var(--bd)">'+esc(c.kampan||'—')+'</span></div>'+
+      (op?'<div class="ii"><label>Operátor</label><span>'+esc((op.jmeno+' '+op.prijmeni).trim())+'</span></div>':'')+
       (narozeni?'<div class="ii"><label>Datum narození</label><span>'+narozeni+'</span></div>':'')+
       (CU.role==='mgr'||CU.role==='tl'&&c.rodne_cislo?'<div class="ii"><label>Rodné číslo</label><span>'+esc(c.rodne_cislo)+'</span></div>':'')+
       (dni!==null?'<div class="ii"><label>Bez kontaktu</label><span style="color:'+(dni>14?'var(--rd)':dni>7?'var(--od)':'var(--g4)')+'">'+dni+' dní</span></div>':'')+
@@ -1690,7 +1696,7 @@ function renderActH(a,kid){
   var lblMap={tel:'Telefonát',sch:'Schůzka',plan:'Naplánované volání',prerazeni:'Přeřazení',email:'E-mail'};
   var oz=a.oz_id?getOzById(a.oz_id):null;
   var canDel=CU.role==='mgr'||CU.role==='tl'||(a.vytvoril===CU.dn||a.vytvoril===CU.username);
-  var hovorLbl={dovolano:'Dovoláno',nedovolano:'Nedovoláno'};
+  var hovorLbl={dovolano:'Dovoláno',nedovolano:'Nedovoláno',naplanovano:'Naplánovaný',splneno:'Splněno'};
   var schStav=a.stav&&['oz_obchod','oz_odlozeno','oz_nezajem','oz_zrusena'].indexOf(a.stav)>=0;
 
   return '<div class="ai">'+
@@ -1704,7 +1710,7 @@ function renderActH(a,kid){
           (canDel?'<button class="aico-btn" onclick="confDel(\'act\',\''+a.id+'\',\''+kid+'\')">×</button>':'')+
         '</div>'+
       '</div>'+
-      (a.typ==='tel'&&a.stav?'<div style="margin-bottom:3px"><span class="stag '+(a.stav==='dovolano'?'st-ok':'st-fail')+'">'+(hovorLbl[a.stav]||a.stav)+'</span></div>':'')+
+      (a.typ==='tel'&&a.stav?'<div style="margin-bottom:3px"><span class="stag '+(a.stav==='dovolano'?'st-ok':a.stav==='naplanovano'?'st-plan':a.stav==='splneno'?'st-ok':'st-fail')+'">'+(hovorLbl[a.stav]||a.stav)+'</span>'+(a.stav==='naplanovano'?' <button class="btn btn-ok btn-sm" style="padding:2px 8px;font-size:10px" onclick="splnitPlanTab(\''+a.id+'\')">✓ Splnit</button>':'')+'</div>':'')+
       (a.poznamka?'<div class="abody">'+esc(a.poznamka)+'</div>':'')+
       (a.typ==='sch'?'<div style="margin-top:6px;padding:8px;background:var(--bll);border-radius:6px;border-left:3px solid var(--bm)">'+
         '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px">'+
@@ -1977,28 +1983,28 @@ function saveAct(){
       if(typ==='sch')novyStav='uz_schuzka';
       if(novyStav){kk.stav_klienta=novyStav;proms.push(sbUpd('klienti','id=eq.'+actKid,{stav_klienta:novyStav}));}
     }
-    // Zpětné volání (nedovolano)
+    // Zpětné volání (nedovolano) → nový telefonát naplanovano
     var zpD=v('zpD');
     if(typ==='tel'&&hovorResult==='nedovolano'&&zpD){
       var pid=uid();
-      var plan={id:pid,klient_id:actKid,typ:'plan',datum:zpD,cas:v('zpC'),
-                poznamka:'Zpětné volání – pokus č.'+(pocet+2),stav:'',
-                oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn};
+      var plan={id:pid,klient_id:actKid,typ:'tel',datum:zpD,cas:v('zpC')||nowStr(),
+                poznamka:'Zpětné volání – pokus č.'+(pocet+2),stav:'naplanovano',
+                oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn,datum_vytvoreni:TODAY};
       DB.aktivity.push(plan);proms.push(sbIns('aktivity',plan));
     }
     // 3× nedovoláno notifikace
     if(typ==='tel'&&hovorResult==='nedovolano'&&pocet+1>=3){
       sendTelegramMgr('⚠️ <b>3× nedovoláno</b>\n\n<b>Klient:</b> '+(c.klient||'?')+'\n<b>Telefon:</b> '+(c.telefon||'?')+'\n<b>Operátor:</b> '+CU.dn);
     }
-    // Klient chce volat jindy (dovolano)
+    // Dovoláno + jindy → nový telefonát naplanovano
     var dovD=document.getElementById('dovDalsi');
     if(typ==='tel'&&hovorResult==='dovolano'&&dovD&&dovD.checked){
       var ddD=v('dovDalsiD'),ddC=v('dovDalsiC');
       if(ddD){
         var pid2=uid();
-        var plan2={id:pid2,klient_id:actKid,typ:'plan',datum:ddD,cas:ddC,
-                   poznamka:'Klient chce volat jindy'+(pozn?' – '+pozn:''),stav:'',
-                   oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn};
+        var plan2={id:pid2,klient_id:actKid,typ:'tel',datum:ddD,cas:ddC||nowStr(),
+                   poznamka:'Klient chce volat jindy'+(pozn?' – '+pozn:''),stav:'naplanovano',
+                   oz_id:null,slot:'',hodnota:null,potvrzeno:false,vytvoril:CU.dn,datum_vytvoreni:TODAY};
         DB.aktivity.push(plan2);proms.push(sbIns('aktivity',plan2));
       }
     }
@@ -2360,6 +2366,11 @@ function savePrerazeni(){
 
 // ══ PŘIŘAZENÍ KLIENTŮ ════════════════════════════════════════
 function openPriraditModal(){
+  var fs=document.getElementById('fStav');
+  if(fs){
+    var hasOpt=Array.from(fs.options).some(function(o){return o.value==='neprirazeny';});
+    if(hasOpt){fs.value='neprirazeny';renderClients();}
+  }
   var ops=DB.uzivatele.filter(function(u){return u.role==='op'&&u.aktivni;});
   document.getElementById('priraditOp').innerHTML='<option value="">— vyber —</option>'+
     ops.map(function(u){
@@ -2626,9 +2637,14 @@ function buildICS(a,klient,oz){
             klient.mesto?'Mesto: '+klient.mesto:'',klient.kampan?'Kampan: '+klient.kampan:'',
             a.poznamka?'Poznamka: '+a.poznamka:'','Zapsal: '+(a.vytvoril||'')].filter(Boolean).join('\n');
   var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//CRM Navolavani//CS',
-    'CALSCALE:GREGORIAN','METHOD:REQUEST','BEGIN:VEVENT',
+    'CALSCALE:GREGORIAN','METHOD:REQUEST',
+    'BEGIN:VTIMEZONE','TZID:Europe/Prague',
+    'BEGIN:STANDARD','DTSTART:19701025T030000','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD',
+    'BEGIN:DAYLIGHT','DTSTART:19700329T020000','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST','RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU','END:DAYLIGHT',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
     'UID:'+uid2+'@crm.navolavani','DTSTAMP:'+now,
-    'DTSTART:'+dt+'T'+hh+mm+'00','DTEND:'+dt+'T'+endHH+mm+'00',
+    'DTSTART;TZID=Europe/Prague:'+dt+'T'+hh+mm+'00','DTEND;TZID=Europe/Prague:'+dt+'T'+endHH+mm+'00',
     'SUMMARY:'+(klient.klient||'Schuzka'),
     'DESCRIPTION:'+desc.replace(/\n/g,'\\n'),'STATUS:CONFIRMED','TRANSP:OPAQUE'];
   if(klient.mesto)lines.push('LOCATION:'+klient.mesto);
@@ -2897,7 +2913,7 @@ function renderPripTab(){
   var filter=v('pripFilter')||'dnes';
   var body=document.getElementById('pripTabBody');
   var weekEnd=new Date(TODAY);weekEnd.setDate(weekEnd.getDate()+7);var weStr=weekEnd.toISOString().slice(0,10);
-  var allAkts=DB.aktivity.filter(function(a){return a.typ==='plan';});
+  var allAkts=DB.aktivity.filter(function(a){return a.typ==='plan'||(a.typ==='tel'&&a.stav==='naplanovano');});
   if(CU.role==='op')allAkts=allAkts.filter(function(a){var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});return kl&&String(kl.prirazen_op||'')===String(CU.id);});
   var fil=allAkts.filter(function(a){
     if(filter==='splnena')return a.stav==='splneno';
@@ -2947,7 +2963,9 @@ function renderPripTab(){
 function splnitPlanTab(aid){
   sbUpd('aktivity','id=eq.'+aid,{stav:'splneno'}).then(function(){
     var a=DB.aktivity.find(function(x){return x.id===aid;});if(a)a.stav='splneno';
-    renderPripTab();updBadge();toast('Splněno','ok');
+    if(document.getElementById('tabPrip')&&document.getElementById('tabPrip').style.display!=='none')renderPripTab();
+    if(a&&selId===a.klient_id)renderKarta(a.klient_id);
+    updBadge();toast('Splněno','ok');
   });
 }
 // ══ DASHBOARD ════════════════════════════════════════════════
@@ -3256,12 +3274,14 @@ function renderDash(r){
   html+='<div class="dc"><h3>Obchodní zástupci – '+mesic+'</h3>'+
     (oz.length?'<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
       '<th>OZ</th><th>Oblast</th><th class="c">Schůzky</th><th class="c">Naplán.</th><th class="c" style="color:var(--gm)">Obchod</th>'+
-      '<th class="c">Zrušeno</th><th class="c">Konv.%</th><th class="c">Hodnota</th>'+
+      '<th class="c">Zrušeno</th><th class="c">Nezájem</th><th class="c">Konv.%</th><th class="c">Hodnota</th>'+
     '</tr></thead><tbody>'+
     oz.map(function(o){
       var ms=schMes.filter(function(a){return a.oz_id===o.id;});
       var usp=ms.filter(function(a){return a.stav==='oz_obchod';}).length;
       var zrus=ms.filter(function(a){return a.stav==='oz_zrusena';}).length;
+      var nez=ms.filter(function(a){return a.stav==='oz_nezajem';}).length;
+      var nez=ms.filter(function(a){return a.stav==='oz_nezajem';}).length;
       var pct=ms.length?Math.round(usp/ms.length*100):0;
       var cl=pct>=50?'var(--gm)':pct>=25?'var(--od)':'var(--rd)';
       var hod=ms.reduce(function(s,a){return s+(parseFloat(a.hodnota)||0);},0);
@@ -3271,6 +3291,7 @@ function renderDash(r){
         '<td class="c"><span class="dnum dn-b">'+ms.filter(function(a){return a.stav==='plan';}).length+'</span></td>'+
         '<td class="c"><span class="dnum dn-g">'+usp+'</span></td>'+
         '<td class="c"><span class="dnum dn-r">'+zrus+'</span></td>'+
+        '<td class="c"><span class="dnum dn-o">'+nez+'</span></td>'+
         '<td class="c"><strong style="color:'+cl+'">'+pct+'%</strong></td>'+
         '<td class="c" style="font-weight:700;color:var(--gm)">'+(hod?hod.toLocaleString('cs-CZ')+' Kč':'—')+'</td>'+
       '</tr>';
