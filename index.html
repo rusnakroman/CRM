@@ -1345,7 +1345,9 @@ function buildStavFilter(){
     ];
   } else if(CU.role==='op'){
     opts=[
+      ['aktivni','Aktivní – noví + otevření'],
       ['vse','Všichni klienti'],
+      ['sch_plan','Má naplánovanou schůzku'],
       ['uz_vse','Uzavření – vše'],
       ['uz_nedovolano','Uzavření – nedovoláno'],
       ['uz_neznam','Uzavření – neznámý kontakt'],
@@ -1460,10 +1462,18 @@ function renderClients(){
     }
     if(fst==='dnes')return dnesKids.indexOf(c.id)>=0&&!uzav;
     if(fst==='sch_plan'){
-      return DB.aktivity.some(function(a){return a.klient_id===c.id&&a.typ==='sch'&&a.stav==='plan'&&!a.potvrzeno;});
+      return DB.aktivity.some(function(a){
+        if(a.klient_id!==c.id||a.typ!=='sch')return false;
+        if(a.stav&&a.stav.indexOf('oz_')===0)return false;
+        return true;
+      });
     }
     if(fst==='sch_potvr'){
-      return DB.aktivity.some(function(a){return a.klient_id===c.id&&a.typ==='sch'&&a.potvrzeno;});
+      return DB.aktivity.some(function(a){
+        if(a.klient_id!==c.id||a.typ!=='sch')return false;
+        if(a.stav&&a.stav.indexOf('oz_')===0)return false;
+        return !!a.potvrzeno;
+      });
     }
     if(fst==='novy')return kat==='novy';
     if(fst==='otevreny')return kat==='otevreny';
@@ -2921,11 +2931,12 @@ function renderPripTab(){
   var weekEnd=new Date(TODAY);weekEnd.setDate(weekEnd.getDate()+7);var weStr=weekEnd.toISOString().slice(0,10);
   var allAkts=DB.aktivity.filter(function(a){return a.typ==='plan'||(a.typ==='tel'&&a.stav==='naplanovano');});
   if(CU.role==='op')allAkts=allAkts.filter(function(a){var kl=DB.klienti.find(function(k){return k.id===a.klient_id;});return kl&&String(kl.prirazen_op||'')===String(CU.id);});
+  var jePlan=function(a){return !a.stav||a.stav==='naplanovano';};
   var fil=allAkts.filter(function(a){
     if(filter==='splnena')return a.stav==='splneno';
-    if(filter==='dnes')return a.datum===TODAY&&!a.stav;
-    if(filter==='tyden')return a.datum>=TODAY&&a.datum<=weStr&&!a.stav;
-    return!a.stav;
+    if(filter==='dnes')return a.datum===TODAY&&jePlan(a);
+    if(filter==='tyden')return a.datum>=TODAY&&a.datum<=weStr&&jePlan(a);
+    return jePlan(a);
   }).sort(function(a,b){return(a.datum+a.cas)>(b.datum+b.cas)?1:-1;});
   if(!fil.length){body.innerHTML='<div style="background:var(--wh);border-radius:var(--r2);box-shadow:var(--sh);padding:24px;text-align:center;color:var(--g3)"><p>Žádná naplánovaná volání</p></div>';return;}
   var grp={};fil.forEach(function(a){if(!grp[a.datum])grp[a.datum]=[];grp[a.datum].push(a);});
